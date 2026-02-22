@@ -143,3 +143,6 @@ target/
 # Translations
 *.mo
 *.pot
+
+# User uploaded files (Excel, PDFs, etc.)
+uploads/
