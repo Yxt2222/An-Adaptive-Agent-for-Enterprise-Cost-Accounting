@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block title %}审计日志 - 核价系统{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <h1 class="text-3xl font-bold text-gray-900">审计日志</h1>
+</div>
+
+<!-- 筛选条件 -->
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <form method="GET" action="{{ url_for('audit.list_logs') }}" class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">项目</label>
+            <select name="project_id" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="">全部</option>
+                {% for p in projects %}
+                <option value="{{ p.id }}" {% if project_id == p.id %}selected{% endif %}>{{ p.raw_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">用户</label>
+            <select name="user_id" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="">全部</option>
+                {% for u in users %}
+                <option value="{{ u.id }}" {% if user_id == u.id %}selected{% endif %}>{{ u.display_name or u.account }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">操作类型</label>
+            <select name="action" class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                <option value="">全部</option>
+                <option value="create" {% if action == 'create' %}selected{% endif %}>创建</option>
+                <option value="update" {% if action == 'update' %}selected{% endif %}>更新</option>
+                <option value="confirm" {% if action == 'confirm' %}selected{% endif %}>确认</option>
+            </select>
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">时间范围</label>
+            <div class="flex space-x-2">
+                <input type="date" name="start_date" value="{{ start_date or '' }}" class="flex-1 px-3 py-2 border border-gray-300 rounded-md">
+                <input type="date" name="end_date" value="{{ end_date or '' }}" class="flex-1 px-3 py-2 border border-gray-300 rounded-md">
+            </div>
+        </div>
+        <div class="md:col-span-4">
+            <div class="flex items-end space-x-2">
+                <input type="text" name="search" value="{{ search or '' }}" placeholder="搜索日志详情..." 
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md">
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                    搜索
+                </button>
+                <a href="{{ url_for('audit.list_logs') }}" class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    重置
+                </a>
+            </div>
+        </div>
+    </form>
+</div>
+
+<!-- 日志列表 -->
+<div class="bg-white rounded-lg shadow">
+    <div class="p-6 border-b border-gray-200">
+        <h2 class="text-lg font-semibold text-gray-900">日志列表 (共 {{ total }} 条)</h2>
+    </div>
+    <div class="divide-y divide-gray-200">
+        {% for log in logs %}
+        <div class="p-6 hover:bg-gray-50">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <div class="flex items-center space-x-3 mb-2">
+                        <span class="px-2 py-1 text-xs font-medium rounded-md {{ action_color_map.get(log.action.value, 'bg-gray-100 text-gray-800') }}">
+                        {{ log.action.value }}
+                        </span>
+                        <span class="text-sm font-medium text-gray-900">{{ log.entity_type }}</span>
+                    </div>
+                    <div class="text-sm text-gray-600 space-y-1">
+                        <div>时间: {{ log.timestamp.strftime('%Y-%m-%d %H:%M:%S') if log.timestamp else '' }}</div>
+                        {% if log.operator_id %}
+                        <div>操作人: {{ log.operator_id }}</div>
+                        {% endif %}
+                        {% if log.project_id %}
+                        <div>项目: {{ log.project_id }}</div>
+                        {% endif %}
+                        {% if log.changed_attribute %}
+                        <div>详情: {{ log.changed_attribute }};
+                            初始值:{{ log.before_value or '-'}};
+                            更换值:{{ log.after_value or '-'}}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="p-12 text-center text-gray-500">
+            暂无日志记录
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- 分页 -->
+    {% if total > per_page %}
+    <div class="p-6 border-t border-gray-200">
+        <div class="flex justify-between items-center">
+            <div class="text-sm text-gray-600">
+                显示第 {{ (page - 1) * per_page + 1 }} - {{ page * per_page if page * per_page < total else total }} 条，共 {{ total }} 条
+            </div>
+            <div class="flex space-x-2">
+                {% if page > 1 %}
+                <a href="?page={{ page - 1 }}{% if project_id %}&project_id={{ project_id }}{% endif %}{% if user_id %}&user_id={{ user_id }}{% endif %}{% if action %}&action={{ action }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+                   class="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    上一页
+                </a>
+                {% endif %}
+                {% if page * per_page < total %}
+                <a href="?page={{ page + 1 }}{% if project_id %}&project_id={{ project_id }}{% endif %}{% if user_id %}&user_id={{ user_id }}{% endif %}{% if action %}&action={{ action }}{% endif %}{% if start_date %}&start_date={{ start_date }}{% endif %}{% if end_date %}&end_date={{ end_date }}{% endif %}{% if search %}&search={{ search }}{% endif %}"
+                   class="px-3 py-1 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    下一页
+                </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+

@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+
+{% block title %}项目列表 - 核价系统{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <div class="flex justify-between items-center">
+        <h1 class="text-3xl font-bold text-gray-900">项目列表</h1>
+        <a href="{{ url_for('project.create_project') }}" 
+           class="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+            </svg>
+            新建项目
+        </a>
+    </div>
+</div>
+
+<!-- 搜索和筛选 -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="GET" action="{{ url_for('project.list_projects') }}" class="flex flex-wrap gap-4">
+        <div class="flex-1 min-w-[200px]">
+            <input type="text" name="search" value="{{ search }}" 
+                   placeholder="搜索项目名称、编号、合同号..." 
+                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <button type="submit" 
+                class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+            <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            搜索
+        </button>
+    </form>
+</div>
+
+<!-- 项目列表 -->
+<div class="grid gap-6">
+    {% for item in projects %}
+    {% set project = item.project %}
+    <div class="bg-white rounded-lg shadow hover:shadow-md transition-shadow">
+        <div class="p-6">
+            <div class="flex justify-between items-start">
+                <div class="flex-1">
+                    <h3 class="text-xl font-semibold text-gray-900 mb-2">
+                        <a href="{{ url_for('project.detail', project_id=project.id) }}" class="hover:text-blue-600">
+                            {{ project.raw_name }}
+                        </a>
+                    </h3>
+                    <div class="flex flex-wrap gap-4 text-sm text-gray-600 mb-4">
+                        {% if project.business_code %}
+                        <span>项目编号: <span class="font-medium">{{ project.business_code }}</span></span>
+                        {% endif %}
+                        {% if project.contract_code %}
+                        <span>合同编号: <span class="font-medium">{{ project.contract_code }}</span></span>
+                        {% endif %}
+                        {% if project.spec_tags %}
+                        <div class="flex gap-2">
+                            {% for tag in project.spec_tags %}
+                            <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    
+                    <!-- 文件状态 -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">材料成本</div>
+                            {% if item.material_file %}
+                            <span class="inline-flex items-center text-sm text-green-600">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                已上传
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center text-sm text-gray-400">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                                待上传
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">配件成本</div>
+                            {% if item.part_file %}
+                            <span class="inline-flex items-center text-sm text-green-600">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                已上传
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center text-sm text-gray-400">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                                待上传
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">人工成本</div>
+                            {% if item.labor_file %}
+                            <span class="inline-flex items-center text-sm text-green-600">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                已上传
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center text-sm text-gray-400">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                                待上传
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div>
+                            <div class="text-xs text-gray-500 mb-1">物流成本</div>
+                            {% if item.logistics_file %}
+                            <span class="inline-flex items-center text-sm text-green-600">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                </svg>
+                                已上传
+                            </span>
+                            {% else %}
+                            <span class="inline-flex items-center text-sm text-gray-400">
+                                <svg class="w-4 h-4 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                                待上传
+                            </span>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                <div class="ml-4 flex flex-col gap-2">
+                    <a href="{{ url_for('project.detail', project_id=project.id) }}" 
+                       class="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">
+                        查看详情
+                    </a>
+                    {% if item.has_report %}
+                    <span class="px-4 py-2 text-sm font-medium text-green-600 bg-green-50 rounded-md">
+                        已有报告
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-500">
+                最后更新: {{ project.updated_at.strftime('%Y-%m-%d %H:%M') if project.updated_at else '' }}
+            </div>
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow p-12 text-center">
+        <svg class="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+        <p class="text-gray-500">暂无项目，点击"新建项目"开始</p>
+    </div>
+    {% endfor %}
+</div>
+{% endblock %}
+

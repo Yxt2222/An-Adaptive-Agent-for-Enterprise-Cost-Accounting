@@ -1,0 +1,458 @@
+{% extends "base.html" %}
+
+{% block title %}文件详情 - 核价系统{% endblock %}
+
+
+{% block content %}
+<div class="mb-6">
+    <a href="{{ url_for('project.detail', project_id=file_record.project_id) }}" class="text-blue-600 hover:text-blue-800 flex items-center">
+        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+        返回项目详情
+    </a>
+    <h1 class="mt-4 text-3xl font-bold text-gray-900">{{ file_record.original_name or '文件详情' }}</h1>
+</div>
+
+<div class="grid gap-6">
+    <!-- 文件信息卡片 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-start mb-4">
+            <div>
+                <h2 class="text-xl font-semibold text-gray-900 mb-2">文件信息</h2>
+                <div class="space-y-2 text-sm text-gray-600">
+                    <div>文件名: {{ file_record.original_name }}</div>
+                    <div>版本: v{{ file_record.version }}</div>
+                    <div>上传人: {{ file_record.uploader_id }}</div>
+                    <div>上传时间: {{ file_record.created_at.strftime('%Y-%m-%d %H:%M:%S') if file_record.created_at else '' }}</div>
+                </div>
+            </div>
+            <div class="flex flex-wrap gap-2">
+                <span class="px-3 py-1 text-xs font-medium rounded-md
+                    {% if file_record.parse_status.value == 'parsed' %}bg-green-100 text-green-800
+                    {% elif file_record.parse_status.value == 'failed' %}bg-red-100 text-red-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {% if file_record.parse_status.value == 'parsed' %}已解析
+                    {% elif file_record.parse_status.value == 'failed' %}解析失败
+                    {% else %}待解析{% endif %}
+                </span>
+                <span class="px-3 py-1 text-xs font-medium rounded-md
+                    {% if file_record.validation_status.value == 'ok' %}bg-green-100 text-green-800
+                    {% elif file_record.validation_status.value == 'warning' %}bg-yellow-100 text-yellow-800
+                    {% elif file_record.validation_status.value == 'blocked' %}bg-red-100 text-red-800
+                    {% elif file_record.validation_status.value == 'confirmed' %}bg-blue-100 text-blue-800
+                    {% else %}bg-gray-100 text-gray-800{% endif %}">
+                    {% if file_record.validation_status.value == 'ok' %}已校验
+                    {% elif file_record.validation_status.value == 'warning' %}警告
+                    {% elif file_record.validation_status.value == 'blocked' %}阻断
+                    {% elif file_record.validation_status.value == 'confirmed' %}已确认
+                    {% else %}待校验{% endif %}
+                </span>
+                {% if file_record.locked %}
+                <span class="px-3 py-1 text-xs font-medium bg-gray-100 text-gray-800 rounded-md">已锁定</span>
+                {% endif %}
+            </div>
+        </div>
+        <div class="flex space-x-2">
+            <a href="{{ url_for('file.download_file', project_id=file_record.project_id, file_id=file_record.id) }}"
+               class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                下载文件
+            </a>
+            {% if file_record.parse_status.value == 'parsed' and not file_record.locked %}
+            <form method="POST" action="{{ url_for('file.validate_file', project_id=file_record.project_id, file_id=file_record.id) }}" class="inline">
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    开始校验
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 校验结果概览 -->
+    {% if validation_report %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">校验结果</h2>
+        <div class="grid grid-cols-5 gap-4 mb-4">
+            <div class="text-center p-4 bg-gray-50 rounded-lg">
+                <div class="text-2xl font-bold text-gray-900">{{ validation_report.total_items }}</div>
+                <div class="text-sm text-gray-600">总计</div>
+            </div>
+            <div class="text-center p-4 bg-green-50 rounded-lg">
+                <div class="text-2xl font-bold text-green-600">{{ validation_report.ok_count }}</div>
+                <div class="text-sm text-gray-600">正常</div>
+            </div>
+            <div class="text-center p-4 bg-yellow-50 rounded-lg">
+                <div class="text-2xl font-bold text-yellow-600">{{ validation_report.warning_count }}</div>
+                <div class="text-sm text-gray-600">警告</div>
+            </div>
+            <div class="text-center p-4 bg-red-50 rounded-lg">
+                <div class="text-2xl font-bold text-red-600">{{ validation_report.blocked_count }}</div>
+                <div class="text-sm text-gray-600">阻断</div>
+            </div>
+            <div class="text-center p-4 bg-blue-50 rounded-lg">
+                <div class="text-2xl font-bold text-blue-600">{{ validation_report.confirmed_count }}</div>
+                <div class="text-sm text-gray-600">已确认</div>
+            </div>
+        </div>
+        
+        <!-- 错误项快速入口 -->
+        {% if validation_report.blocked_count > 0 or validation_report.warning_count > 0 %}
+        <div class="flex gap-2 mb-4">
+            {% if validation_report.blocked_count > 0 %}
+            <a href="?status=blocked" class="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
+                查看阻断项 ({{ validation_report.blocked_count }})
+            </a>
+            {% endif %}
+            {% if validation_report.warning_count > 0 %}
+            <a href="?status=warning" class="px-4 py-2 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700">
+                查看警告项 ({{ validation_report.warning_count }})
+            </a>
+            {% endif %}
+        </div>
+        {% endif %}
+        
+        {% if validation_report.blocked_count > 0 %}
+        <div class="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+            <p class="text-sm text-red-800 font-medium">⚠️ 存在 {{ validation_report.blocked_count }} 个阻断项，必须修复后才能计算成本</p>
+        </div>
+        {% endif %}
+        {% if validation_report.warning_count > 0 and validation_report.blocked_count == 0 %}
+        <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <p class="text-sm text-yellow-800">存在 {{ validation_report.warning_count }} 个警告项，可以人工确认后继续</p>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 错误项列表（如果有） -->
+    {% if validation_report and (validation_report.blocked_items or validation_report.warning_items) %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <h2 class="text-xl font-semibold text-gray-900 mb-4">需要处理的数据项</h2>
+        
+        <!-- 阻断项列表 -->
+        {% if validation_report.blocked_items %}
+        <div class="mb-6">
+            <h3 class="text-lg font-medium text-red-800 mb-3">阻断项 ({{ validation_report.blocked_items|length }})</h3>
+            <div class="space-y-2">
+                {% for item_result in validation_report.blocked_items %}
+                {% set item = items_dict.get(item_result.item_id) %}
+                {% if item %}
+                <div class="border border-red-200 rounded-lg p-4 bg-red-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900 mb-1">
+                                {% if item_type == 'material' or file_record.file_type.value == 'material_cost' %}
+                                    {{ item.normalized_name or item.raw_name }}
+                                {% elif item_type == 'part' or file_record.file_type.value == 'part_cost' %}
+                                    {{ item.normalized_name or item.raw_name }}
+                                {% elif item_type == 'labor' or file_record.file_type.value == 'labor_cost' %}
+                                    {{ item.normalized_group or item.raw_group }}
+                                {% elif item_type == 'logistics' or file_record.file_type.value in ['logistics_cost', 'manual'] %}
+                                    {{ item.description or '物流项' }}
+                                {% endif %}
+                            </div>
+                            <div class="text-sm text-red-800 space-y-1">
+                                {% for message in item_result.messages %}
+                                <div>• {{ message }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% if not file_record.locked %}
+                        <a href="{{ url_for('file.edit_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" 
+                           class="ml-4 px-3 py-1 text-sm font-medium text-white bg-red-600 rounded-md hover:bg-red-700">
+                            查看/编辑
+                        </a>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <!-- 警告项列表 -->
+        {% if validation_report.warning_items %}
+        <div>
+            <h3 class="text-lg font-medium text-yellow-800 mb-3">警告项 ({{ validation_report.warning_items|length }})</h3>
+            <div class="space-y-2">
+                {% for item_result in validation_report.warning_items %}
+                {% set item = items_dict.get(item_result.item_id) %}
+                {% if item %}
+                <div class="border border-yellow-200 rounded-lg p-4 bg-yellow-50">
+                    <div class="flex justify-between items-start">
+                        <div class="flex-1">
+                            <div class="font-medium text-gray-900 mb-1">
+                                {% if item_type == 'material' or file_record.file_type.value == 'material_cost' %}
+                                    {{ item.normalized_name or item.raw_name }}
+                                {% elif item_type == 'part' or file_record.file_type.value == 'part_cost' %}
+                                    {{ item.normalized_name or item.raw_name }}
+                                {% elif item_type == 'labor' or file_record.file_type.value == 'labor_cost' %}
+                                    {{ item.normalized_group or item.raw_group }}
+                                {% elif item_type == 'logistics' or file_record.file_type.value in ['logistics_cost', 'manual'] %}
+                                    {{ item.description or '物流项' }}
+                                {% endif %}
+                            </div>
+                            <div class="text-sm text-yellow-800 space-y-1">
+                                {% for message in item_result.messages %}
+                                <div>• {{ message }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% if not file_record.locked %}
+                        <div class="ml-4 flex gap-2">
+                            <a href="{{ url_for('file.edit_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" 
+                               class="px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">
+                                查看/编辑
+                            </a>
+                            <form method="POST" action="{{ url_for('file.confirm_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" class="inline">
+                                <button type="submit" 
+                                        onclick="return confirm('确认将此警告项标记为已确认？')"
+                                        class="px-3 py-1 text-sm font-medium text-white bg-yellow-600 rounded-md hover:bg-yellow-700">
+                                    确认
+                                </button>
+                            </form>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+                {% endif %}
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- 数据列表 -->
+    {% if items %}
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">数据列表</h2>
+        </div>
+        
+        <!-- 搜索和筛选 -->
+        <div class="mb-4 flex gap-4">
+            <form method="GET" action="{{ url_for('file.file_detail', project_id=file_record.project_id, file_id=file_record.id) }}" class="flex-1 flex gap-2">
+                <input type="text" name="search" value="{{ search }}" 
+                       placeholder="搜索名称、规格..." 
+                       class="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <select name="status" class="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>全部状态</option>
+                    <option value="ok" {% if status_filter == 'ok' %}selected{% endif %}>正常</option>
+                    <option value="warning" {% if status_filter == 'warning' %}selected{% endif %}>警告</option>
+                    <option value="blocked" {% if status_filter == 'blocked' %}selected{% endif %}>阻断</option>
+                    <option value="confirmed" {% if status_filter == 'confirmed' %}selected{% endif %}>已确认</option>
+                </select>
+                <button type="submit" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                    搜索
+                </button>
+                <a href="{{ url_for('file.file_detail', project_id=file_record.project_id, file_id=file_record.id) }}" 
+                   class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-md hover:bg-gray-200">
+                    重置
+                </a>
+            </form>
+        </div>
+        
+        <div class="overflow-x-auto">
+            <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                    <tr>
+                        {% if item_type == 'material' or file_record.file_type.value == 'material_cost' %}
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">名称</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">规格型号</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">数量</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">单位</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">单价</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">小计</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        {% elif item_type == 'part' or file_record.file_type.value == 'part_cost' %}
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">名称</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">规格型号</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">数量</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">单价</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">小计</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        {% elif item_type == 'labor' or file_record.file_type.value == 'labor_cost' %}
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">班组</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">数量</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">单位</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">单价</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">小计</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        {% elif item_type == 'logistics' or file_record.file_type.value in ['logistics_cost', 'manual'] %}
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">类型</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">备注</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">小计</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">状态</th>
+                        <th class="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">操作</th>
+                        {% endif %}
+                    </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                    {% for item in items %}
+                    <tr class="hover:bg-gray-50">
+                        {% if item_type == 'material' or file_record.file_type.value == 'material_cost' %}
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ item.normalized_name or item.raw_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.spec or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.quantity or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.unit or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ "{:,.2f}".format(item.unit_price) if item.unit_price else '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ "{:,.2f}".format(item.subtotal) if item.subtotal else '-' }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 text-xs font-medium rounded-md
+                                {% if item.status.value == 'ok' %}bg-green-100 text-green-800
+                                {% elif item.status.value == 'warning' %}bg-yellow-100 text-yellow-800
+                                {% elif item.status.value == 'confirmed' %}bg-blue-100 text-blue-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if item.status.value == 'ok' %}正常
+                                {% elif item.status.value == 'warning' %}警告
+                                {% elif item.status.value == 'confirmed' %}已确认
+                                {% else %}阻断{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm" onclick="event.stopPropagation()">
+                            {% if not file_record.locked %}
+                            <div class="flex gap-2">
+                                <a href="{{ url_for('file.edit_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" 
+                                   class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">
+                                    编辑
+                                </a>
+                                {% if item.status.value == 'warning' %}
+                                <form method="POST" action="{{ url_for('file.confirm_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" class="inline">
+                                    <button type="submit" 
+                                            onclick="return confirm('确认将此警告项标记为已确认？')"
+                                            class="px-2 py-1 text-xs font-medium text-white bg-yellow-600 rounded hover:bg-yellow-700">
+                                        确认
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        {% elif item_type == 'part' or file_record.file_type.value == 'part_cost' %}
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ item.normalized_name or item.raw_name }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.spec or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.quantity or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ "{:,.2f}".format(item.unit_price) if item.unit_price else '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ "{:,.2f}".format(item.subtotal) if item.subtotal else '-' }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 text-xs font-medium rounded-md
+                                {% if item.status.value == 'ok' %}bg-green-100 text-green-800
+                                {% elif item.status.value == 'warning' %}bg-yellow-100 text-yellow-800
+                                {% elif item.status.value == 'confirmed' %}bg-blue-100 text-blue-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if item.status.value == 'ok' %}正常
+                                {% elif item.status.value == 'warning' %}警告
+                                {% elif item.status.value == 'confirmed' %}已确认
+                                {% else %}阻断{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm" onclick="event.stopPropagation()">
+                            {% if not file_record.locked %}
+                            <div class="flex gap-2">
+                                <a href="{{ url_for('file.edit_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" 
+                                   class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">
+                                    编辑
+                                </a>
+                                {% if item.status.value == 'warning' %}
+                                <form method="POST" action="{{ url_for('file.confirm_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" class="inline">
+                                    <button type="submit" 
+                                            onclick="return confirm('确认将此警告项标记为已确认？')"
+                                            class="px-2 py-1 text-xs font-medium text-white bg-yellow-600 rounded hover:bg-yellow-700">
+                                        确认
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        {% elif item_type == 'labor' or file_record.file_type.value == 'labor_cost' %}
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ item.normalized_group or item.raw_group }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.work_quantity or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.unit or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ "{:,.2f}".format(item.unit_price) if item.unit_price else '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ "{:,.2f}".format(item.subtotal) if item.subtotal else '-' }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 text-xs font-medium rounded-md
+                                {% if item.status.value == 'ok' %}bg-green-100 text-green-800
+                                {% elif item.status.value == 'warning' %}bg-yellow-100 text-yellow-800
+                                {% elif item.status.value == 'confirmed' %}bg-blue-100 text-blue-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if item.status.value == 'ok' %}正常
+                                {% elif item.status.value == 'warning' %}警告
+                                {% elif item.status.value == 'confirmed' %}已确认
+                                {% else %}阻断{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm" onclick="event.stopPropagation()">
+                            {% if not file_record.locked %}
+                            <div class="flex gap-2">
+                                <a href="{{ url_for('file.edit_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" 
+                                   class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">
+                                    编辑
+                                </a>
+                                {% if item.status.value == 'warning' %}
+                                <form method="POST" action="{{ url_for('file.confirm_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" class="inline">
+                                    <button type="submit" 
+                                            onclick="return confirm('确认将此警告项标记为已确认？')"
+                                            class="px-2 py-1 text-xs font-medium text-white bg-yellow-600 rounded hover:bg-yellow-700">
+                                        确认
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        {% elif item_type == 'logistics' or file_record.file_type.value in ['logistics_cost', 'manual'] %}
+                        <td class="px-4 py-3 text-sm text-gray-900">{{ item.type.value if item.type else '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-600">{{ item.description or '-' }}</td>
+                        <td class="px-4 py-3 text-sm text-gray-900 font-medium">{{ "{:,.2f}".format(item.subtotal) if item.subtotal else '-' }}</td>
+                        <td class="px-4 py-3 text-sm">
+                            <span class="px-2 py-1 text-xs font-medium rounded-md
+                                {% if item.status.value == 'ok' %}bg-green-100 text-green-800
+                                {% elif item.status.value == 'warning' %}bg-yellow-100 text-yellow-800
+                                {% elif item.status.value == 'confirmed' %}bg-blue-100 text-blue-800
+                                {% else %}bg-red-100 text-red-800{% endif %}">
+                                {% if item.status.value == 'ok' %}正常
+                                {% elif item.status.value == 'warning' %}警告
+                                {% elif item.status.value == 'confirmed' %}已确认
+                                {% else %}阻断{% endif %}
+                            </span>
+                        </td>
+                        <td class="px-4 py-3 text-sm" onclick="event.stopPropagation()">
+                            {% if not file_record.locked and file_record.file_type.value != 'manual' %}
+                            <div class="flex gap-2">
+                                <a href="{{ url_for('file.edit_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" 
+                                   class="px-2 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">
+                                    编辑
+                                </a>
+                                {% if item.status.value == 'warning' %}
+                                <form method="POST" action="{{ url_for('file.confirm_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" class="inline">
+                                    <button type="submit" 
+                                            onclick="return confirm('确认将此警告项标记为已确认？')"
+                                            class="px-2 py-1 text-xs font-medium text-white bg-yellow-600 rounded hover:bg-yellow-700">
+                                        确认
+                                    </button>
+                                </form>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-lg shadow p-12 text-center">
+        <p class="text-gray-500">暂无数据</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

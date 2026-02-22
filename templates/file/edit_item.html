@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+
+{% block title %}编辑数据项 - 核价系统{% endblock %}
+
+{% block content %}
+<div class="mb-6">
+    <a href="{{ url_for('file.file_detail', project_id=file_record.project_id, file_id=file_record.id) }}" class="text-blue-600 hover:text-blue-800 flex items-center">
+        <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+        </svg>
+        返回文件详情
+    </a>
+    <h1 class="mt-4 text-3xl font-bold text-gray-900">编辑数据项</h1>
+</div>
+
+<div class="bg-white rounded-lg shadow p-6 max-w-4xl">
+    <!-- 状态和问题提示 -->
+    {% if item_result %}
+    <div class="mb-6 p-4 rounded-lg
+        {% if item_result.status == 'blocked' %}bg-red-50 border border-red-200
+        {% elif item_result.status == 'warning' %}bg-yellow-50 border border-yellow-200
+        {% else %}bg-gray-50 border border-gray-200{% endif %}">
+        <div class="flex items-start">
+            <div class="flex-1">
+                <h3 class="font-medium mb-2
+                    {% if item_result.status == 'blocked' %}text-red-800
+                    {% elif item_result.status == 'warning' %}text-yellow-800
+                    {% else %}text-gray-800{% endif %}">
+                    {% if item_result.status == 'blocked' %}⚠️ 阻断项
+                    {% elif item_result.status == 'warning' %}⚠️ 警告项
+                    {% else %}信息{% endif %}
+                </h3>
+                {% if item_result.messages %}
+                <ul class="list-disc list-inside space-y-1 text-sm
+                    {% if item_result.status == 'blocked' %}text-red-700
+                    {% elif item_result.status == 'warning' %}text-yellow-700
+                    {% else %}text-gray-700{% endif %}">
+                    {% for message in item_result.messages %}
+                    <li>{{ message }}</li>
+                    {% endfor %}
+                </ul>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('file.edit_item', project_id=file_record.project_id, file_id=file_record.id, item_id=item.id) }}" class="space-y-6">
+        {% if file_record.file_type.value == 'material_cost' %}
+        <!-- 材料成本项编辑表单 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">名称</label>
+                <input type="text" value="{{ item.normalized_name or item.raw_name }}" disabled
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                <p class="text-xs text-gray-500 mt-1">名称不可编辑</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">规格型号</label>
+                <input type="text" name="spec" value="{{ item.spec or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">数量</label>
+                <input type="number" step="0.01" name="quantity" value="{{ item.quantity or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+                <input type="text" name="unit" value="{{ item.unit or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">材质</label>
+                <input type="text" name="material_grade" value="{{ item.material_grade or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">参考重量(kg)</label>
+                <input type="number" step="0.01" name="weight_kg" value="{{ item.weight_kg or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单价</label>
+                <input type="number" step="0.01" name="unit_price" value="{{ item.unit_price or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">小计</label>
+                <input type="number" step="0.01" name="subtotal" value="{{ item.subtotal or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        {% elif file_record.file_type.value == 'part_cost' %}
+        <!-- 配件成本项编辑表单 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">名称</label>
+                <input type="text" value="{{ item.normalized_name or item.raw_name }}" disabled
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                <p class="text-xs text-gray-500 mt-1">名称不可编辑</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">规格型号</label>
+                <input type="text" name="spec" value="{{ item.spec or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">数量</label>
+                <input type="number" step="0.01" name="quantity" value="{{ item.quantity or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+                <input type="text" name="unit" value="{{ item.unit or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单价</label>
+                <input type="number" step="0.01" name="unit_price" value="{{ item.unit_price or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">小计</label>
+                <input type="number" step="0.01" name="subtotal" value="{{ item.subtotal or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        {% elif file_record.file_type.value == 'labor_cost' %}
+        <!-- 人工成本项编辑表单 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">班组</label>
+                <input type="text" value="{{ item.normalized_group or item.raw_group }}" disabled
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                <p class="text-xs text-gray-500 mt-1">班组名称不可编辑</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">数量</label>
+                <input type="number" step="0.01" name="work_quantity" value="{{ item.work_quantity or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单位</label>
+                <input type="text" name="unit" value="{{ item.unit or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">单价</label>
+                <input type="number" step="0.01" name="unit_price" value="{{ item.unit_price or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">额外补贴</label>
+                <input type="number" step="0.01" name="extra_subsidies" value="{{ item.extra_subsidies or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">吨位奖金</label>
+                <input type="number" step="0.01" name="ton_bonus" value="{{ item.ton_bonus or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">小计</label>
+                <input type="number" step="0.01" name="subtotal" value="{{ item.subtotal or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+
+        {% elif file_record.file_type.value in ['logistics_cost', 'manual'] %}
+        <!-- 物流成本项编辑表单 -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">类型</label>
+                <input type="text" value="{{ item.type.value if item.type else '-' }}" disabled
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500">
+                <p class="text-xs text-gray-500 mt-1">类型不可编辑</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">备注描述</label>
+                <textarea name="description" rows="3"
+                          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">{{ item.description or '' }}</textarea>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">小计</label>
+                <input type="number" step="0.01" name="subtotal" value="{{ item.subtotal or '' }}"
+                       class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+            <a href="{{ url_for('file.file_detail', project_id=file_record.project_id, file_id=file_record.id) }}" 
+               class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                取消
+            </a>
+            <button type="submit" 
+                    class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                保存
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+

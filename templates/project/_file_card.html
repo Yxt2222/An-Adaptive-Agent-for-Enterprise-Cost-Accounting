@@ -1,0 +1,80 @@
+<div class="border border-gray-200 rounded-lg p-4">
+    <div class="flex justify-between items-start">
+        <div class="flex-1">
+            <h3 class="font-medium text-gray-900 mb-2">{{ file_type_name }}</h3>
+            {% if file %}
+            <div class="space-y-1 text-sm text-gray-600">
+                <div>版本: v{{ file.version }}</div>
+                <div class="flex items-center space-x-4">
+                    <span class="{% if file.parse_status.value == 'parsed' %}text-green-600{% elif file.parse_status.value == 'failed' %}text-red-600{% else %}text-gray-400{% endif %}">
+                        {% if file.parse_status.value == 'parsed' %}
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        已解析
+                        {% elif file.parse_status.value == 'failed' %}
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                        </svg>
+                        解析失败
+                        {% else %}
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
+                        </svg>
+                        待解析
+                        {% endif %}
+                    </span>
+                    <span class="{% if file.validation_status.value == 'ok' %}text-green-600{% elif file.validation_status.value == 'warning' %}text-yellow-600{% elif file.validation_status.value == 'blocked' %}text-red-600{% else %}text-gray-400{% endif %}">
+                        {% if file.validation_status.value == 'ok' %}
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                        </svg>
+                        已校验
+                        {% elif file.validation_status.value == 'warning' %}
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                        警告
+                        {% elif file.validation_status.value == 'blocked' %}
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M13.477 14.89A6 6 0 015.11 6.524l8.367 8.368zm1.414-1.414L6.524 5.11a6 6 0 018.367 8.367zM18 10a8 8 0 11-16 0 8 8 0 0116 0z" clip-rule="evenodd" />
+                        </svg>
+                        阻断
+                        {% else %}
+                        待校验
+                        {% endif %}
+                    </span>
+                    {% if file.locked %}
+                    <span class="text-gray-500">
+                        <svg class="w-4 h-4 inline mr-1" fill="currentColor" viewBox="0 0 20 20">
+                            <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+                        </svg>
+                        已锁定
+                    </span>
+                    {% endif %}
+                </div>
+                <div>上传人: {{ file.uploader_id }} | {{ file.created_at.strftime('%Y-%m-%d %H:%M') if file.created_at else '' }}</div>
+            </div>
+            {% else %}
+            <div class="text-sm text-gray-400">尚未上传</div>
+            {% endif %}
+        </div>
+        <div class="ml-4 flex space-x-2">
+            {% if file %}
+            <a href="{{ url_for('file.file_detail', project_id=project.id, file_id=file.id) }}"
+               class="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">
+                查看详情
+            </a>
+            <a href="{{ url_for('file.download_file', project_id=project.id, file_id=file.id) }}"
+               class="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100">
+                下载
+            </a>
+            {% endif %}
+            <a href="{{ url_for('file.upload_file', project_id=project.id) }}?file_type={{ file_type_enum }}"
+               class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700">
+                {% if file %}重新上传{% else %}上传{% endif %}
+            </a>
+        </div>
+    </div>
+</div>
+

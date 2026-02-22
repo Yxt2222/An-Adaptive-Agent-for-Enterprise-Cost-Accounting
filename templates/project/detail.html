@@ -1,0 +1,293 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.raw_name }} - 核价系统{% endblock %}
+
+{% block content %}
+<!-- 面包屑导航 -->
+<div class="mb-6">
+    <nav class="flex items-center space-x-2 text-sm text-gray-500">
+        <a href="{{ url_for('project.list_projects') }}" class="hover:text-gray-700">项目列表</a>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7" />
+        </svg>
+        <span class="text-gray-900">{{ project.raw_name }}</span>
+    </nav>
+</div>
+
+<div class="grid gap-6">
+    <!-- 项目信息卡片 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-start mb-4">
+            <h1 class="text-2xl font-bold text-gray-900">{{ project.raw_name }}</h1>
+            <button onclick="document.getElementById('edit-form').classList.toggle('hidden')" 
+                    class="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 rounded-md hover:bg-blue-100">
+                编辑项目
+            </button>
+        </div>
+        
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {% if project.business_code %}
+            <div>
+                <span class="text-sm text-gray-500">项目编号:</span>
+                <span class="ml-2 font-medium">{{ project.business_code }}</span>
+            </div>
+            {% endif %}
+            {% if project.contract_code %}
+            <div>
+                <span class="text-sm text-gray-500">合同编号:</span>
+                <span class="ml-2 font-medium">{{ project.contract_code }}</span>
+            </div>
+            {% endif %}
+            {% if project.spec_tags %}
+            <div class="md:col-span-2">
+                <span class="text-sm text-gray-500">规格标签:</span>
+                <div class="mt-1 flex flex-wrap gap-2">
+                    {% for tag in project.spec_tags %}
+                    <span class="px-2 py-1 bg-gray-100 text-gray-700 rounded text-sm">{{ tag }}</span>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- 编辑表单（默认隐藏） -->
+        <div id="edit-form" class="hidden mt-4 pt-4 border-t border-gray-200">
+            <form method="POST" action="{{ url_for('project.update_project', project_id=project.id) }}" class="space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">项目编号</label>
+                        <input type="text" name="business_code" value="{{ project.business_code or '' }}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">合同编号</label>
+                        <input type="text" name="contract_code" value="{{ project.contract_code or '' }}"
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">规格标签</label>
+                    <input type="text" name="spec_tags" value="{{ project.spec_tags|join(', ') if project.spec_tags else '' }}"
+                           class="w-full px-3 py-2 border border-gray-300 rounded-md"
+                           placeholder="用逗号分隔">
+                </div>
+                <div class="flex justify-end space-x-2">
+                    <button type="button" onclick="document.getElementById('edit-form').classList.add('hidden')"
+                            class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                        取消
+                    </button>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700">
+                        保存
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- 文件管理卡片 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">文件管理</h2>
+            <a href="{{ url_for('file.upload_file', project_id=project.id) }}"
+               class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                上传新文件
+            </a>
+        </div>
+        
+        <div class="space-y-4">
+            <!-- 材料成本表 -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="font-medium text-gray-900 mb-2">材料成本表</h3>
+                        {% if material_file %}
+                        <div class="space-y-1 text-sm text-gray-600">
+                            <div>版本: v{{ material_file.version }}</div>
+                            <div class="flex items-center space-x-4">
+                                <span class="{% if material_file.parse_status.value == 'parsed' %}text-green-600{% elif material_file.parse_status.value == 'failed' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if material_file.parse_status.value == 'parsed' %}已解析{% elif material_file.parse_status.value == 'failed' %}解析失败{% else %}待解析{% endif %}
+                                </span>
+                                <span class="{% if material_file.validation_status.value == 'ok' %}text-green-600{% elif material_file.validation_status.value == 'warning' %}text-yellow-600{% elif material_file.validation_status.value == 'blocked' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if material_file.validation_status.value == 'ok' %}已校验{% elif material_file.validation_status.value == 'warning' %}警告{% elif material_file.validation_status.value == 'blocked' %}阻断{% else %}待校验{% endif %}
+                                </span>
+                                {% if material_file.locked %}<span class="text-gray-500">已锁定</span>{% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-gray-400">尚未上传</div>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4 flex flex-wrap gap-2">
+                        {% if material_file %}
+                        <a href="{{ url_for('file.file_detail', project_id=project.id, file_id=material_file.id) }}" class="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">查看详情</a>
+                        <a href="{{ url_for('file.download_file', project_id=project.id, file_id=material_file.id) }}" class="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100">下载</a>
+                        {% endif %}
+                        <a href="{{ url_for('file.upload_file', project_id=project.id) }}?file_type=material_cost" class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700">{% if material_file %}上传文件{% else %}上传文件{% endif %}</a>
+                        {#<a href="{{ url_for('file.add_manual_item', project_id=project.id, item_type='material') }}" class="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700">人工输入</a>#}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 配件成本表 -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="font-medium text-gray-900 mb-2">配件成本表</h3>
+                        {% if part_file %}
+                        <div class="space-y-1 text-sm text-gray-600">
+                            <div>版本: v{{ part_file.version }}</div>
+                            <div class="flex items-center space-x-4">
+                                <span class="{% if part_file.parse_status.value == 'parsed' %}text-green-600{% elif part_file.parse_status.value == 'failed' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if part_file.parse_status.value == 'parsed' %}已解析{% elif part_file.parse_status.value == 'failed' %}解析失败{% else %}待解析{% endif %}
+                                </span>
+                                <span class="{% if part_file.validation_status.value == 'ok' %}text-green-600{% elif part_file.validation_status.value == 'warning' %}text-yellow-600{% elif part_file.validation_status.value == 'blocked' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if part_file.validation_status.value == 'ok' %}已校验{% elif part_file.validation_status.value == 'warning' %}警告{% elif part_file.validation_status.value == 'blocked' %}阻断{% else %}待校验{% endif %}
+                                </span>
+                                {% if part_file.locked %}<span class="text-gray-500">已锁定</span>{% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-gray-400">尚未上传</div>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4 flex flex-wrap gap-2">
+                        {% if part_file %}
+                        <a href="{{ url_for('file.file_detail', project_id=project.id, file_id=part_file.id) }}" class="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">查看详情</a>
+                        <a href="{{ url_for('file.download_file', project_id=project.id, file_id=part_file.id) }}" class="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100">下载</a>
+                        {% endif %}
+                        <a href="{{ url_for('file.upload_file', project_id=project.id) }}?file_type=part_cost" class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700">{% if part_file %}上传文件{% else %}上传文件{% endif %}</a>
+                        {#<a href="{{ url_for('file.add_manual_item', project_id=project.id, item_type='part') }}" class="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700">人工输入</a>#}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 人工成本表 -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="font-medium text-gray-900 mb-2">人工成本表</h3>
+                        {% if labor_file %}
+                        <div class="space-y-1 text-sm text-gray-600">
+                            <div>版本: v{{ labor_file.version }}</div>
+                            <div class="flex items-center space-x-4">
+                                <span class="{% if labor_file.parse_status.value == 'parsed' %}text-green-600{% elif labor_file.parse_status.value == 'failed' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if labor_file.parse_status.value == 'parsed' %}已解析{% elif labor_file.parse_status.value == 'failed' %}解析失败{% else %}待解析{% endif %}
+                                </span>
+                                <span class="{% if labor_file.validation_status.value == 'ok' %}text-green-600{% elif labor_file.validation_status.value == 'warning' %}text-yellow-600{% elif labor_file.validation_status.value == 'blocked' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if labor_file.validation_status.value == 'ok' %}已校验{% elif labor_file.validation_status.value == 'warning' %}警告{% elif labor_file.validation_status.value == 'blocked' %}阻断{% else %}待校验{% endif %}
+                                </span>
+                                {% if labor_file.locked %}<span class="text-gray-500">已锁定</span>{% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-gray-400">尚未上传</div>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4 flex flex-wrap gap-2">
+                        {% if labor_file %}
+                        <a href="{{ url_for('file.file_detail', project_id=project.id, file_id=labor_file.id) }}" class="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">查看详情</a>
+                        <a href="{{ url_for('file.download_file', project_id=project.id, file_id=labor_file.id) }}" class="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100">下载</a>
+                        {% endif %}
+                        <a href="{{ url_for('file.upload_file', project_id=project.id) }}?file_type=labor_cost" class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700">{% if labor_file %}上传文件{% else %}上传文件{% endif %}</a>
+                        {#<a href="{{ url_for('file.add_manual_item', project_id=project.id, item_type='labor') }}" class="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700">人工输入</a>#}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 物流成本表 -->
+            <div class="border border-gray-200 rounded-lg p-4">
+                <div class="flex justify-between items-start">
+                    <div class="flex-1">
+                        <h3 class="font-medium text-gray-900 mb-2">物流成本表</h3>
+                        {% if logistics_file %}
+                        <div class="space-y-1 text-sm text-gray-600">
+                            <div>版本: v{{ logistics_file.version }}</div>
+                            <div class="flex items-center space-x-4">
+                                <span class="{% if logistics_file.parse_status.value == 'parsed' %}text-green-600{% elif logistics_file.parse_status.value == 'failed' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if logistics_file.parse_status.value == 'parsed' %}已解析{% elif logistics_file.parse_status.value == 'failed' %}解析失败{% else %}待解析{% endif %}
+                                </span>
+                                <span class="{% if logistics_file.validation_status.value == 'ok' %}text-green-600{% elif logistics_file.validation_status.value == 'warning' %}text-yellow-600{% elif logistics_file.validation_status.value == 'blocked' %}text-red-600{% else %}text-gray-400{% endif %}">
+                                    {% if logistics_file.validation_status.value == 'ok' %}已校验{% elif logistics_file.validation_status.value == 'warning' %}警告{% elif logistics_file.validation_status.value == 'blocked' %}阻断{% else %}待校验{% endif %}
+                                </span>
+                                {% if logistics_file.locked %}<span class="text-gray-500">已锁定</span>{% endif %}
+                            </div>
+                        </div>
+                        {% else %}
+                        <div class="text-sm text-gray-400">尚未上传</div>
+                        {% endif %}
+                    </div>
+                    <div class="ml-4 flex flex-wrap gap-2">
+                        {% if logistics_file %}
+                        <a href="{{ url_for('file.file_detail', project_id=project.id, file_id=logistics_file.id) }}" class="px-3 py-1 text-xs font-medium text-blue-600 bg-blue-50 rounded hover:bg-blue-100">查看详情</a>
+                        <a href="{{ url_for('file.download_file', project_id=project.id, file_id=logistics_file.id) }}" class="px-3 py-1 text-xs font-medium text-gray-600 bg-gray-50 rounded hover:bg-gray-100">下载</a>
+                        {% endif %}
+                        <a href="{{ url_for('file.upload_file', project_id=project.id) }}?file_type=logistics_cost" class="px-3 py-1 text-xs font-medium text-white bg-blue-600 rounded hover:bg-blue-700">{% if logistics_file %}上传文件{% else %}上传文件{% endif %}</a>
+                        {#<a href="{{ url_for('file.add_manual_item', project_id=project.id, item_type='logistics') }}" class="px-3 py-1 text-xs font-medium text-white bg-green-600 rounded hover:bg-green-700">人工输入</a>#}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 成本报告卡片 -->
+    <div class="bg-white rounded-lg shadow p-6">
+        <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-semibold text-gray-900">成本报告</h2>
+            <a href="{{ url_for('project.export_cost_report', project_id=project.id) }}"
+               class="px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-md hover:bg-green-700 flex items-center
+                      {% if not (material_file and part_file and labor_file and logistics_file) %}opacity-75{% endif %}"
+               {% if not (material_file and part_file and labor_file and logistics_file) %}
+               title="请先上传所有必需文件（材料、配件、人工、物流成本表）"
+               {% endif %}>
+                <svg class="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                导出成本报告
+            </a>
+        </div>
+        
+        {% if latest_report %}
+        <div class="bg-blue-50 rounded-lg p-4 mb-4">
+            <div class="flex justify-between items-center">
+                <div>
+                    <div class="text-sm text-gray-600">报告版本: v{{ latest_report.calculation_version }}</div>
+                    <div class="text-2xl font-bold text-gray-900 mt-2">
+                        直接生产成本: ¥{{ "{:,.2f}".format(latest_report.total_cost) }}
+                    </div>
+                    <div class="text-xs text-gray-500 mt-1">
+                        计算时间: {{ latest_report.calculated_at.strftime('%Y-%m-%d %H:%M:%S') if latest_report.calculated_at else '' }}
+                    </div>
+                </div>
+                <div class="flex space-x-2">
+                    <a href="{{ url_for('report.view_report', project_id=project.id, report_id=latest_report.id) }}"
+                       class="px-4 py-2 text-sm font-medium text-blue-600 bg-white border border-blue-600 rounded-md hover:bg-blue-50">
+                        查看详细报告
+                    </a>
+                    <a href="{{ url_for('report.download_excel', project_id=project.id, report_id=latest_report.id) }}"
+                       class="px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-md hover:bg-blue-700">
+                        下载Excel
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% else %}
+        <div class="text-center py-8 text-gray-500">
+            {% if material_file and part_file and labor_file and logistics_file %}
+            <p class="mb-4">暂无成本报告，点击"导出成本报告"将自动计算并导出</p>
+            <div class="flex justify-center space-x-4">
+                <a href="{{ url_for('report.calculate_cost', project_id=project.id) }}"
+                   class="px-4 py-2 text-sm font-medium text-blue-600 bg-blue-50 border border-blue-600 rounded-md hover:bg-blue-100">
+                    手动计算成本
+                </a>
+            </div>
+            {% else %}
+            <p>暂无成本报告</p>
+            <p class="mt-2 text-sm">请先上传所有必需的文件（材料成本表、配件成本表、人工成本表、物流成本表）</p>
+            <p class="mt-2 text-xs text-gray-400">点击右上角"导出成本报告"按钮可查看具体缺少哪些文件</p>
+            {% endif %}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+

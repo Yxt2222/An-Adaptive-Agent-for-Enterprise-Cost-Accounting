@@ -1,0 +1,107 @@
+{% extends "base.html" %}
+
+{% block title %}成本计算 - 核价系统{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto">
+    <div class="mb-6">
+        <a href="{{ url_for('project.detail', project_id=project.id) }}" class="text-blue-600 hover:text-blue-800 flex items-center">
+            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+            </svg>
+            返回项目详情
+        </a>
+        <h1 class="mt-4 text-3xl font-bold text-gray-900">成本计算</h1>
+        <p class="mt-2 text-sm text-gray-600">项目: {{ project.raw_name }}</p>
+    </div>
+
+    <div class="bg-white rounded-lg shadow p-6">
+        <form method="POST" action="{{ url_for('report.calculate_cost', project_id=project.id) }}" class="space-y-6">
+            <div class="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                <p class="text-sm text-blue-800">
+                    <svg class="w-5 h-5 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    注意: 计算后将锁定所选文件版本，无法再修改
+                </p>
+            </div>
+
+            <!-- 材料成本表选择 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">材料成本表 <span class="text-red-500">*</span></label>
+                <select name="material_file_id" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">请选择版本</option>
+                    {% for file in material_files %}
+                    <option value="{{ file.id }}" {% if file.locked %}disabled{% endif %}>
+                        版本 v{{ file.version }} 
+                        {% if file.locked %}(已锁定){% endif %}
+                        - {{ file.parse_status.value }} / {{ file.validation_status.value }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 配件成本表选择 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">配件成本表 <span class="text-red-500">*</span></label>
+                <select name="part_file_id" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">请选择版本</option>
+                    {% for file in part_files %}
+                    <option value="{{ file.id }}" {% if file.locked %}disabled{% endif %}>
+                        版本 v{{ file.version }} 
+                        {% if file.locked %}(已锁定){% endif %}
+                        - {{ file.parse_status.value }} / {{ file.validation_status.value }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 人工成本表选择 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">人工成本表 <span class="text-red-500">*</span></label>
+                <select name="labor_file_id" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">请选择版本</option>
+                    {% for file in labor_files %}
+                    <option value="{{ file.id }}" {% if file.locked %}disabled{% endif %}>
+                        版本 v{{ file.version }} 
+                        {% if file.locked %}(已锁定){% endif %}
+                        - {{ file.parse_status.value }} / {{ file.validation_status.value }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- 物流成本表选择 -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">物流成本表 <span class="text-red-500">*</span></label>
+                <select name="logistics_file_id" required
+                        class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <option value="">请选择版本</option>
+                    {% for file in logistics_files %}
+                    <option value="{{ file.id }}" {% if file.locked %}disabled{% endif %}>
+                        版本 v{{ file.version }} 
+                        {% if file.locked %}(已锁定){% endif %}
+                        - {{ file.parse_status.value }} / {{ file.validation_status.value }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="flex justify-end space-x-4 pt-4 border-t border-gray-200">
+                <a href="{{ url_for('project.detail', project_id=project.id) }}" 
+                   class="px-4 py-2 border border-gray-300 rounded-md text-gray-700 hover:bg-gray-50">
+                    取消
+                </a>
+                <button type="submit" 
+                        class="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    开始计算
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
