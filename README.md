@@ -103,10 +103,11 @@ Tool 是 LLM 与现实世界之间的唯一合法接口。
 
 已实现核心工具：
 ```bash
-Tool	                 作用	                    修改数据库	       不可逆
-parse_file	           解析 Excel 生成 Items	   ✅	             ❌
-validate_file	         执行业务规则校验	          ✅	              ❌
-generate_cost_summary	 生成不可变成本快照	        ✅	              ✅
+| Tool                  | 作用                     | 修改数据库 | 不可逆 |
+|-----------------------|--------------------------|------------|--------|
+| parse_file            | 解析 Excel 生成 Items     | ✅         | ❌     |
+| validate_file         | 执行业务规则校验          | ✅         | ❌     |
+| generate_cost_summary | 生成不可变成本快照        | ✅         | ✅     |
 ```
 **所有工具必须**：
 - 返回 ToolResult
