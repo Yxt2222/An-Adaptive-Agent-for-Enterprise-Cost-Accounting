@@ -15,7 +15,7 @@ from app.agentic.schemas.risk_profile import ToolRiskProfile
 from app.agentic.tools.registry import tool_registry
 
 #Part 1 错误分类
-def _classify_generate_summary_error(e: Exception) -> tuple[ErrorType, str]:
+def _classify_generate_summary_error(e: Exception) -> tuple[ErrorType, str, str]:
     """
     把 service 抛出的异常映射为 ErrorType。
     这里先按 service 的异常风格（大量 ValueError）做最小可用分类。
@@ -25,27 +25,47 @@ def _classify_generate_summary_error(e: Exception) -> tuple[ErrorType, str]:
     msg = str(e).lower()
     
     # --- DB/系统类 ---
-    if isinstance(e, (OperationalError, sqlite3.OperationalError)):
-        return ErrorType.DATABASE_ERROR, msg
-    if isinstance(e, SQLAlchemyError):
-        return ErrorType.DATABASE_ERROR, msg
+    if isinstance(e, (OperationalError, sqlite3.OperationalError,SQLAlchemyError)):
+        explain = (
+                "Database error occurred. Retry may work. If repeated, escalate to ERR_ESCALATE with audit details."
+            )
+        return ErrorType.DATABASE_ERROR, msg, explain
 
     # 不可逆冲突：locked / already locked
     if "locked" in msg or "already locked" in msg:
-        return ErrorType.IRREVERSIBLE_CONFLICT, msg
+        explain = (
+                "Cannot generate CostSummary because one or more FileRecords are locked "
+                "(already used by a previous CostSummary). Escalate or create a new file version."
+            )
+        return ErrorType.IRREVERSIBLE_CONFLICT, msg, explain
 
     # 校验类：not parsed / not validated
     if "not parsed" in msg or "not validated" in msg:
-        return ErrorType.VALIDATION_ERROR, msg
+        explain = (
+                "Cannot generate CostSummary because one or more FileRecords are not ready "
+                "(not parsed or not validated). Go back to HUMAN_CORRECTION_LOOP or validate step."
+            )
+        return ErrorType.VALIDATION_ERROR, msg, explain
 
     # 输入类：not found / required / does not belong
     if "not found" in msg or "required" in msg or "does not belong" in msg:
-        return ErrorType.INPUT_ERROR, msg
+        explain = (
+                "Input is invalid (e.g., file_id not found, missing parameters, or file does not belong to project). "
+                "Ask the user to re-check inputs and retry."
+            )
+        return ErrorType.INPUT_ERROR, msg, explain
 
     if "not belong" in msg:
-        return ErrorType.TOOL_CALL_ERROR, msg
+        explain = (
+                "Tool call error due to invalid parameters in tool call(not schema fail). Check the error message for details "
+                "and try again. Error message: " + msg
+            )
+        return ErrorType.TOOL_CALL_ERROR, msg, explain
     # 兜底：未知异常
-    return ErrorType.SYSTEM_ERROR, msg
+    explain = (
+                "Unexpected system error occurred. Retry once; if it fails again, escalate to ERR_ESCALATE."
+            )
+    return ErrorType.SYSTEM_ERROR, msg, explain
 
 #Part 2 工具实现
 def generate_cost_summary_tool(
@@ -76,6 +96,7 @@ def generate_cost_summary_tool(
     # 如果未来这个动作需要强制人类授权，可在这里打开
     # if not human_auth_token:
     #     return ToolResult(
+    #         tool_name="generate_cost_summary_tool",
     #         ok=False,
     #         error_type=ErrorType.HUMAN_AUTH_REQUIRED,
     #         error_message="Human authorization is required to generate CostSummary.",
@@ -98,10 +119,11 @@ def generate_cost_summary_tool(
             operator_id=operator_id,
         )
         db.commit()
-
+        db.refresh(summary)  # 刷新以获取最新状态，尤其是关联的文件记录状态（locked）
         dto = CostSummaryDTO.from_domain_model(summary)
 
         return ToolResult(
+            tool_name="generate_cost_summary_tool",
             ok=True,
             data=dto.model_dump(),
             explanation=(
@@ -116,40 +138,9 @@ def generate_cost_summary_tool(
 
     except Exception as e:
         db.rollback()
-
-        et,msg = _classify_generate_summary_error(e)
-
-        # 针对不同错误给 LLM 更明确的 next step
-        if et == ErrorType.VALIDATION_ERROR:
-            explain = (
-                "Cannot generate CostSummary because one or more FileRecords are not ready "
-                "(not parsed or not validated). Go back to HUMAN_CORRECTION_LOOP or validate step."
-            )
-        elif et == ErrorType.IRREVERSIBLE_CONFLICT:
-            explain = (
-                "Cannot generate CostSummary because one or more FileRecords are locked "
-                "(already used by a previous CostSummary). Escalate or create a new file version."
-            )
-        elif et == ErrorType.INPUT_ERROR:
-            explain = (
-                "Input is invalid (e.g., file_id not found, missing parameters, or file does not belong to project). "
-                "Ask the user to re-check inputs and retry."
-            )
-        elif et == ErrorType.DATABASE_ERROR:
-            explain = (
-                "Database error occurred. Retry may work. If repeated, escalate to ERR_ESCALATE with audit details."
-            )
-        elif et == ErrorType.TOOL_CALL_ERROR:
-            explain = (
-                "Tool call error due to invalid parameters in tool call(not schema fail). Check the error message for details "
-                "and try again. Error message: " + msg
-            )
-        else:
-            explain = (
-                "Unexpected system error occurred. Retry once; if it fails again, escalate to ERR_ESCALATE."
-            )
-
+        et,msg,explain = _classify_generate_summary_error(e)
         return ToolResult(
+            tool_name="generate_cost_summary_tool",
             ok=False,
             error_type=et,
             error_message=str(e),
@@ -159,13 +150,14 @@ def generate_cost_summary_tool(
             irreversible=False,
             audit_ref_id=None,
         )
+    finally:
+        db.close()
 #Part 3 注册工具，import时自动注册
-spec = ToolSpec(
-            name="generate_cost_summary",
+tool_registry.register(ToolSpec(
+            name="generate_cost_summary_tool",
             func=generate_cost_summary_tool,
             description="Generate cost summary",
-            input_schema={"db": "Session",
-                          "project_id": "str",
+            input_schema={"project_id": "str",
                           "material_file_id": "str",
                           "part_file_id": "str",
                           "labor_file_id": "str",
@@ -180,5 +172,4 @@ spec = ToolSpec(
                 require_human_auth=True
             )
         )
-
-tool_registry.register(spec)
+    )

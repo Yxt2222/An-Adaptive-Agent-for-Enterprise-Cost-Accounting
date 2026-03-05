@@ -6,6 +6,7 @@ from sqlalchemy import (
     Enum,
     Boolean,
     Integer,
+    UniqueConstraint,
     func,
 )
 from app.db.base import Base
@@ -15,6 +16,14 @@ from datetime import datetime
 
 class FileRecord(Base):
     __tablename__ = "file_records"
+    __table_args__ = (
+    UniqueConstraint(
+        "project_id",
+        "file_type",
+        "version",
+        name="uq_filerecord_project_type_version"
+    ),
+)
     # =========
     # 🔒 Immutable facts
     # =========

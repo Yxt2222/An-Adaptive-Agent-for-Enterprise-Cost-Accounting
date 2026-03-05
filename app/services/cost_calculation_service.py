@@ -363,7 +363,7 @@ class CostCalculationService:
             )                           
             .all()
         )
-        print('nunmber of materialitem loaded:',len(materials))
+
         #write material rows
         uploader = self.db.query(User).get(material_file.uploader_id)
         for m in materials:
@@ -399,7 +399,7 @@ class CostCalculationService:
             )
             .all()
         )
-        print('nunmber of partitem loaded:',len(parts))
+
         #write part rows
         uploader = self.db.query(User).get(part_file.uploader_id)
         for p in parts:
@@ -435,7 +435,7 @@ class CostCalculationService:
             )
             .all()
         )
-        print('nunmber of logisticsitem loaded:', len(logistics))
+
         
         uploader = self.db.query(User).get(logistics_file.uploader_id)
         for l in logistics:
@@ -462,7 +462,7 @@ class CostCalculationService:
             )
             .all()
         )
-        print('nunmber of laboritem loaded:', len(labors))
+
 
         uploader = self.db.query(User).get(labor_file.uploader_id)
         for l in labors:

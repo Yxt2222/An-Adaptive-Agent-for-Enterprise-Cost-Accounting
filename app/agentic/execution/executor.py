@@ -28,6 +28,7 @@ class PythonExecutor:
        # 1️ allowlist gate
         if tool_name not in allowlist:
             return ToolResult(
+                tool_name=tool_name,
                 ok=False,
                 error_type=ErrorType.TOOL_NOT_ALLOWED,
                 error_message=f"{tool_name} is not allowed in current state.",
@@ -40,6 +41,7 @@ class PythonExecutor:
         spec = self.registry.get(tool_name)
         if not spec:
             return ToolResult(
+                tool_name=tool_name,
                 ok=False,
                 error_type=ErrorType.SYSTEM_ERROR,
                 error_message=f"Tool '{tool_name}' not found in registry.",
@@ -54,6 +56,7 @@ class PythonExecutor:
             #如果返回不是ToolResult，说明tool实现有问题，属于系统错误
             if not isinstance(result, ToolResult):
                 return ToolResult(
+                    tool_name=tool_name,
                     ok=False,
                     error_type=ErrorType.SYSTEM_ERROR,
                     error_message="Tool did not return ToolResult instance.",
@@ -67,6 +70,7 @@ class PythonExecutor:
         except Exception as e:
             # 理论上不应该进入这里（tool 内部已分类）
             return ToolResult(
+                tool_name=tool_name,
                 ok=False,
                 error_type=ErrorType.SYSTEM_ERROR,
                 error_message=str(e),

@@ -17,6 +17,7 @@ from app.models.logistics_item import LogisticsItem
 from app.models.cost_summary import CostSummary
 from app.models.name_mapping import NameMapping
 from app.models.audit_log import AuditLog
+from app.models.raw_upload_record import RawUploadRecord
 
 def check_tables_exist() -> bool:
     """检查数据库表是否存在"""

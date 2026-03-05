@@ -21,6 +21,7 @@ class ToolRegistry:
         param:
         spec: ToolSpec - The tool specification to register.
         '''
+        #防止重复注册同名工具，保持工具名称的唯一性，便于调用和审计追踪
         if spec.name in self._tools:
             raise ValueError(f"Tool already registered: {spec.name}")
         self._tools[spec.name] = spec

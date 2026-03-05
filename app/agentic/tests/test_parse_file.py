@@ -1,6 +1,5 @@
 #app/agentic/tests/test_validate_file_tool.py
 import os
-from app.agentic.tools.auto_discover import discover_tools
 from app.db.session import get_engine
 #数据库路径设置为工作目录
 os.environ.setdefault(
@@ -25,6 +24,7 @@ def test_parse_file_direct():
         file_id="a844db10-8a66-42e5-bfc7-cd60964af38f",
         operator_id="Agent"
     )
+    db.close()
     print(result.model_dump())
 
 def test_executor_layer():
@@ -43,13 +43,13 @@ def test_executor_layer():
     auto_init()
     db = get_session()
     result = executor.execute(
-        tool_name="parse_file",
+        tool_name="parse_file_tool",
         args={"db": db,
               "file_id": "a844db10-8a66-42e5-bfc7-cd60964af38f",
               "operator_id": "Agent"},
         allowlist={"parse_file"}
     )
-  
+    db.close()
     print(result.model_dump())
 
 if __name__ == "__main__":

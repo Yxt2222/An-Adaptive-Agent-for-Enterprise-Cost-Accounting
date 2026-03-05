@@ -11,21 +11,25 @@ engine = get_engine()
 print("CWD =", os.getcwd())
 print("ENGINE URL =", engine.url)
 
-def test_validate_file_direct():
+def test_create_upload_file_direct():
     from app.db.session import get_session
-    from app.agentic.tools.validate_file_tool import validate_file_tool
+    from app.agentic.tools.create_upload_file_record_tool import create_update_file_record_tool
     from app.db.auto_init import auto_init 
     
     auto_init()
     db = get_session()
 
-    result = validate_file_tool(
+    result = create_update_file_record_tool(
         db=db,
-        file_id="dd9bccee-acca-4c44-b84f-5bd254920dbb",
+        project_id="1e189ac5-e375-467a-b37c-3fc4b5918f0f",
+        file_type="material",
+        storage_path="C:/Users/Yu/Desktop/项目/小微机械制造企业信息化，数字化转型/科利特数据/针梁式栈桥加工成本表（test）.xlsx",
+        original_name="针梁式栈桥材料成本表（test）.xlsx",
         operator_id="Agent"
     )
     db.close()
     print(result.model_dump())
+    
 
 def test_executor_layer():
     from app.agentic.execution.executor import PythonExecutor
@@ -43,15 +47,19 @@ def test_executor_layer():
     auto_init()
     db = get_session()
     result = executor.execute(
-        tool_name="validate_file_tool",
+        tool_name="create_update_file_record_tool",
         args={"db": db,
-              "file_id": "dd9bccee-acca-4c44-b84f-5bd254920dbb",
+              "project_id": "1e189ac5-e375-467a-b37c-3fc4b5918f0f",
+              "file_type": "material",
+              "storage_path": "C:/Users/Yu/Desktop/项目/小微机械制造企业信息化，数字化转型/科利特数据/针梁式栈桥加工成本表（test）.xlsx",
+              "original_name": "针梁式栈桥材料成本表（test）.xlsx",
               "operator_id": "Agent"},
-        allowlist={"validate_file"}
+        allowlist={"create_update_file_record"}
     )
     db.close()
-    print(result.model_dump())
 
+    print(result.model_dump())
+  
 if __name__ == "__main__":
-    test_validate_file_direct()
+    test_create_upload_file_direct()
     test_executor_layer()

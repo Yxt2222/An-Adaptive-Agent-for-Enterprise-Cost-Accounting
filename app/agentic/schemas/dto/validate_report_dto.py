@@ -22,6 +22,9 @@ class ValidationSummaryDTO(BaseModel):
     is_ready_for_summary: bool
 
 class ValidationReportDTO(BaseModel):
+    id:str
+    file_type: str
+    validation_status: str
     summary: ValidationSummaryDTO
 
     blocked_items: List[ValidationIssueDTO]
@@ -39,7 +42,7 @@ class ValidationReportDTO(BaseModel):
             is_ready_for_summary=(report.blocked_count == 0 and report.warning_count == 0)
         )
 
-        def convert_item(item: ItemValidationResult):
+        def convert_item(item: ItemValidationResult) -> ValidationIssueDTO:
             return ValidationIssueDTO(
                 item_id=item.item_id,
                 status=item.status,
@@ -49,6 +52,9 @@ class ValidationReportDTO(BaseModel):
             )
 
         return cls(
+            id=report.id,
+            file_type=report.file_type,
+            validation_status=report.validation_status,
             summary=summary,
             blocked_items=[convert_item(i) for i in report.blocked_items],
             warning_items=[convert_item(i) for i in report.warning_items]

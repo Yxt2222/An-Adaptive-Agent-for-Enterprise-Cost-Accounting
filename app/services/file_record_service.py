@@ -32,8 +32,8 @@ class FileRecordService:
         project_id: str,
         file_type: FileType,
         operator_id: str,
-        original_name: str = 'manual_upload',
-        storage_path: str = 'fakepath',
+        storage_path: str  ,
+        original_name: str  ,
         file_bytes: bytes = b'',
     ) -> FileRecord:
         """
@@ -104,6 +104,7 @@ class FileRecordService:
             return record
         
         # 1. 计算 file_hash（证据）
+        file_bytes = open(storage_path, "rb").read() if file_bytes == b'' else file_bytes
         file_hash = sha256(file_bytes).hexdigest()
 
         # 2. 计算 version
@@ -203,6 +204,26 @@ class FileRecordService:
             .order_by(desc(FileRecord.version))#按version降序排列
             .first()#取第一个，即最新的
         )
+    def get_latest_version(
+        self,
+        *,
+        project_id: str,
+        file_type: FileType,
+    ) -> int:
+        """
+        Return the latest file belonging to the project and file type that:
+        - parse_status = parsed
+        - validation_status in (ok, confirmed)
+        - locked = False
+        
+        :param project_id: 项目ID
+        :type project_id: str
+        :param file_type: 文件类型
+        :type file_type: FileType
+        :return: 满足条件的最新 FileRecord，找不到则返回 None
+        """
+        latest_file = self.get_latest_valid_file(project_id=project_id, file_type=file_type)
+        return latest_file.version if latest_file else 0
 
     def lock_file(
         self,

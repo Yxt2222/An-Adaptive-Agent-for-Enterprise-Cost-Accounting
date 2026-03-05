@@ -1,5 +1,5 @@
 # app/agentic/execution/tool_registry.py
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 from pydantic import BaseModel
 from app.agentic.schemas.error_type import ErrorType
 
@@ -8,6 +8,7 @@ class ToolResult(BaseModel):
     工具执行结果的结构化表达
     
     参数	说明
+    tool_name    str	调用的工具名称 具有独一性，便于追踪和审计
     ok: bool  - 这次调用是否完成预期操作？
     error_type: Optional[ErrorType] - 错误类型的结构化记录
     error_message: Optional[str] - 面向LLM/人类的可读解释，报错信息
@@ -17,12 +18,13 @@ class ToolResult(BaseModel):
     irreversible: bool - 这次调用是否不可逆/不可撤销（如删除数据）
     audit_ref_id: Optional[str] - 用于审计追踪的唯一标识符
     '''
+    tool_name: str
     ok: bool  # 是否成功完成
 
     error_type: Optional[ErrorType] = None
     error_message: Optional[str] = None
 
-    data: Optional[Dict[str, Any]] = None
+    data: Optional[Any]  = None
     explanation: Optional[str] = None
     # explanation 是给 LLM 的自然语言解释 + 下一步建议
 

@@ -69,6 +69,8 @@ class AuditLogService:
         
         # 如果都不匹配，尝试一些常见的映射
         type_mapping = {
+            "raw_file_record": AuditEntityType.RawFileRecord,
+            "RawFileRecord": AuditEntityType.RawFileRecord,
             "project": AuditEntityType.Project,
             "file_record": AuditEntityType.FileRecord,
             "FileRecord": AuditEntityType.FileRecord,
@@ -107,7 +109,7 @@ class AuditLogService:
     ) -> None:
         '''
         创建一条创建操作的审计日志
-        适用于创建NameMapping, Project, FileRecord, MaterialItem, PartItem, LaborItem, LogisticsItem, CostSummary等实体时调用
+        适用于创建NameMapping,RawFileRecord, Project, FileRecord, MaterialItem, PartItem, LaborItem, LogisticsItem, CostSummary等实体时调用
 
         :param project_id: 从属项目ID,可选
         :type project_id: Optional[str]

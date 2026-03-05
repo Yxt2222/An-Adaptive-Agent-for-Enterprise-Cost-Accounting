@@ -26,6 +26,7 @@ def validate_file_tool(
         #检查file是否存在
         if not file:
             return ToolResult(
+                tool_name="validate_file_tool",
                 ok=False,
                 error_type=ErrorType.INPUT_ERROR,
                 error_message=f"FileRecord {file_id} not found.",
@@ -38,6 +39,7 @@ def validate_file_tool(
         #检查parse_status == parsed
         if file.parse_status != ParseStatus.parsed:
             return ToolResult(
+                tool_name="validate_file_tool",
                 ok=False,
                 error_type=ErrorType.BUSINESS_RULE_ERROR,
                 error_message="File must be parsed before validation.",
@@ -50,6 +52,7 @@ def validate_file_tool(
         #检查validation_status ==pending
         if file.validation_status != ValidationStatus.pending:
             return ToolResult(
+                tool_name="validate_file_tool",
                 ok=False,
                 error_type=ErrorType.BUSINESS_RULE_ERROR,
                 error_message="File is not in pending validation state.",
@@ -61,12 +64,14 @@ def validate_file_tool(
             )
         #调用validation_service.validate_file()
         report = service.validate_file(file)
+        
 
         db.commit()
         #将ValidationReport转换成DTO
         dto = ValidationReportDTO.from_domain_model(report)
         #返回tool result
         return ToolResult(
+            tool_name="validate_file_tool",
             ok=True,
             data=dto.model_dump(),
             explanation=(
@@ -83,6 +88,7 @@ def validate_file_tool(
     except Exception as e:
         db.rollback()
         return ToolResult(
+            tool_name="validate_file_tool",
             ok=False,
             error_type=ErrorType.DATABASE_ERROR,
             error_message=str(e),
@@ -92,10 +98,12 @@ def validate_file_tool(
             irreversible=False,
             audit_ref_id=None,
         )
+    finally:
+        db.close()
 
 #Part 3 注册工具，import时自动注册
 spec = ToolSpec(
-            name="validate_file",
+            name="validate_file_tool",
             func=validate_file_tool,
             description="Validate a file",
             input_schema={"db": "Session",

@@ -33,10 +33,14 @@ def _classify_parse_file_error(e: Exception) -> tuple[ErrorType, str]:
 
     #  系统逻辑冲突，手动文件不用校验
     if "manual" in msg:
-        return ErrorType.BUSINESS_RULE_ERROR, msg
+        expalin = "Manual files cannot be parsed automatically. Upload a new file with a supported FileType."
+        return ErrorType.BUSINESS_RULE_ERROR, expalin
     
     #  输入错误，文件类型有误
     if "unsupported" in msg:
+        explain = "Column names of file don't align with schema.Unsupported file type for parsing."
+        return ErrorType.SCHEMA_ERROR, explain
+    if isinstance(e, ValueError):
         return ErrorType.INPUT_ERROR, msg
 
     # 兜底：未知异常
@@ -64,6 +68,7 @@ def parse_file_tool(
         #检查file是否存在
         if not file:
             return ToolResult(
+                tool_name="parse_file_tool",
                 ok=False,
                 error_type=ErrorType.INPUT_ERROR,
                 error_message=f"FileRecord {file_id} not found.",
@@ -74,6 +79,7 @@ def parse_file_tool(
         #检查文件是否被locked。
         if file.locked:
             return ToolResult(
+                tool_name="parse_file_tool",
                 ok=False,
                 error_type=ErrorType.IRREVERSIBLE_CONFLICT,
                 error_message="File is locked by CostSummary.",
@@ -84,6 +90,7 @@ def parse_file_tool(
         #检查是否parse_status == pending
         if file.parse_status != ParseStatus.pending:
             return ToolResult(
+                tool_name="parse_file_tool",
                 ok=False,
                 error_type=ErrorType.BUSINESS_RULE_ERROR,
                 error_message="File is not in pending parse state.",
@@ -95,13 +102,15 @@ def parse_file_tool(
         ingest_service.ingest(file)
 
         db.commit()
+        db.refresh(file)
         #返回成功结果，转化成dto
         dto = FileRecordDTO.from_orm_model(file)
 
         return ToolResult(
+            tool_name="parse_file_tool",
             ok=True,
             data=dto.model_dump(),
-            explanation="File parsed successfully. Items created. Ready for validation.",
+            explanation="Parsing ends. Check file parse_status for details.",
             side_effect=True,
             irreversible=False,
         )
@@ -131,6 +140,7 @@ def parse_file_tool(
                 "Unexpected system error occurred. Retry once; if it fails again, escalate to ERR_ESCALATE."
             )
         return ToolResult(
+            tool_name="parse_file_tool",
             ok=False,
             error_type=et,
             error_message=str(e),
@@ -138,14 +148,15 @@ def parse_file_tool(
             side_effect=False,
             irreversible=False,
         )
+    finally:
+        db.close()
         
 #Part 3 注册工具，import时自动注册
-spec = ToolSpec(
-            name="parse_file",
+tool_registry.register(ToolSpec(
+            name="parse_file_tool",
             func=parse_file_tool,
             description="Parse a file",
-            input_schema={"db": "Session",
-                          "file_id": "str",
+            input_schema={"file_id": "str",
                           "operator_id": "str"},
             output_schema= "ToolResult",
             risk_profile=ToolRiskProfile(
@@ -156,5 +167,4 @@ spec = ToolSpec(
                 require_human_auth=False
             )
         )
-
-tool_registry.register(spec)
+)

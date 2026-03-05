@@ -21,6 +21,7 @@ class ProjectNameStatus(enum.Enum):
 class AuditEntityType(enum.Enum):
     User = "user"
     NameMapping = "name_mapping"
+    RawFileRecord = "raw_file_record"
     Project = "project"
     FileRecord = "file_record"
     MaterialItem = "material_item"
@@ -85,3 +86,10 @@ class NameDomain(enum.Enum):
     MATERIAL = "material"
     PART = "part"
     LABOR_GROUP = "labor_group"
+
+class RawUploadStatus(str, enum.Enum):
+    staged = "staged"       # 前端已上传
+    probed = "probed"       # 已探测 column name
+    confirmed = "confirmed" # 用户确认 file_type
+    bound = "bound"         # 已绑定到 Project
+    discarded = "discarded" # 废弃

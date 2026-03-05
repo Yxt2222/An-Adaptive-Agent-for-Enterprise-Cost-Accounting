@@ -40,7 +40,7 @@ class Orchestrator:
             args=tool_call["args"],
             allowlist=allowlist
         )
-        self.env_return = result
+        self.env_return = result.model_dump()
         self.trace.emit("tool_executed", result=result)
 
         # --- done

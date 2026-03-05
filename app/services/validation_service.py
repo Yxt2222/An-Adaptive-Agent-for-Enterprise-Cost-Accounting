@@ -11,6 +11,9 @@ class ItemValidationResult:
     messages: List[str] = field(default_factory=list)
 @dataclass
 class ValidationReport:
+    id:str
+    file_type: str
+    validation_status: str
     total_items: int
     ok_count: int
     warning_count: int
@@ -164,6 +167,9 @@ class ValidationService:
         self.db.flush()
         
         return ValidationReport(
+            id=file_record.id,
+            file_type=file_record.file_type.value,
+            validation_status=file_record.validation_status.value,
             total_items=len(items),
             ok_count=ok_count,
             confirmed_count=confirmed_count,

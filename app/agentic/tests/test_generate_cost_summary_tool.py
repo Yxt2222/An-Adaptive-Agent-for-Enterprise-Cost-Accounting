@@ -27,7 +27,7 @@ def test_generate_cost_summary_direct():
         logistics_file_id="dd9bccee-acca-4c44-b84f-5bd254920dbb",
         operator_id="Agent"
     )
-
+    db.close()
     print(result.model_dump())
 
 def test_executor_layer():
@@ -44,7 +44,7 @@ def test_executor_layer():
     auto_init()
     db = get_session()
     result = executor.execute(
-        tool_name="generate_cost_summary",
+        tool_name="generate_cost_summary_tool",
         args={"db": db,
               "project_id": "d1ede5f1-72aa-4c95-88f1-095c06c8c281",
               "material_file_id": "887b1932-58ce-4204-bf68-72989f7a08cd",
@@ -54,7 +54,7 @@ def test_executor_layer():
               "operator_id": "Agent"},
         allowlist={"generate_cost_summary"}
     )
-
+    db.close()
     print(result.model_dump())
 
 if __name__ == "__main__":
