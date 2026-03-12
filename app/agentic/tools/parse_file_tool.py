@@ -16,7 +16,7 @@ from app.agentic.tools.registry import tool_registry
 
 
 #Part 1 错误分类
-def _classify_parse_file_error(e: Exception) -> tuple[ErrorType, str]:
+def _classify_parse_file_error(e: Exception) -> tuple[ErrorType, str, str]:
     """
     把 service 抛出的异常映射为 ErrorType。
     这里先按 service 的异常风格（大量 ValueError）做最小可用分类。
@@ -24,27 +24,34 @@ def _classify_parse_file_error(e: Exception) -> tuple[ErrorType, str]:
     """
     # --- 业务/输入类（当前 service 多用 ValueError） ---
     msg = str(e).lower()
-    
+     
     # --- DB/系统类 ---
+    explain = "An database error occurred during file parsing."
     if isinstance(e, (OperationalError, sqlite3.OperationalError)):
-        return ErrorType.DATABASE_ERROR, msg
+        return ErrorType.DATABASE_ERROR, msg, explain
     if isinstance(e, SQLAlchemyError):
-        return ErrorType.DATABASE_ERROR, msg
+        return ErrorType.DATABASE_ERROR, msg, explain
 
     #  系统逻辑冲突，手动文件不用校验
     if "manual" in msg:
-        expalin = "Manual files cannot be parsed automatically. Upload a new file with a supported FileType."
-        return ErrorType.BUSINESS_RULE_ERROR, expalin
-    
+        explain = "Manual files cannot be parsed automatically. Upload a new file with a supported FileType."
+        return ErrorType.BUSINESS_RULE_ERROR, msg, explain
+
     #  输入错误，文件类型有误
+    if "missing required columns" in msg:
+        explain = "Input file is missing required columns. Check the error message for details and upload a new file with correct columns."
+        return ErrorType.INPUT_ERROR, msg, explain
+    
     if "unsupported" in msg:
-        explain = "Column names of file don't align with schema.Unsupported file type for parsing."
-        return ErrorType.SCHEMA_ERROR, explain
+        explain = "Input file has an unsupported type for parsing.Ask the user to re-check inputs and upload a new file with supported FileType."
+        return ErrorType.INPUT_ERROR, msg, explain
     if isinstance(e, ValueError):
-        return ErrorType.INPUT_ERROR, msg
+        explain = "Input error occurred. Check the error message for details and try again with correct inputs."
+        return ErrorType.INPUT_ERROR, msg, explain
 
     # 兜底：未知异常
-    return ErrorType.SYSTEM_ERROR, msg
+    explain = "An unknown error occurred. Please try again later."
+    return ErrorType.SYSTEM_ERROR, msg, explain
 
 def parse_file_tool(
     *,
@@ -118,39 +125,18 @@ def parse_file_tool(
     except Exception as e:
         db.rollback()
         
-        et,msg = _classify_parse_file_error(e)
+        et,msg,explain = _classify_parse_file_error(e)
 
-        # 针对不同错误给 LLM 更明确的 next step
-        if et == ErrorType.INPUT_ERROR:
-            explain = (
-                "Cannot parse file because input is invalid (FileType is unsupported for parsing). "
-                "Ask the user to re-check inputs and retry."
-            )
-        elif et == ErrorType.BUSINESS_RULE_ERROR:
-            explain = (
-                "Cannot parse file because its FileType is manual and manual files cannot be parsed automatically. "
-                "Upload a new file with a supported FileType."
-            )
-        elif et == ErrorType.DATABASE_ERROR:
-            explain = (
-                "Database error occurred. Retry may work. If repeated, escalate to ERR_ESCALATE with audit details."
-            )
-        else:
-            explain = (
-                "Unexpected system error occurred. Retry once; if it fails again, escalate to ERR_ESCALATE."
-            )
         return ToolResult(
             tool_name="parse_file_tool",
             ok=False,
             error_type=et,
-            error_message=str(e),
+            error_message=msg,
             explanation=explain,
             side_effect=False,
             irreversible=False,
         )
-    finally:
-        db.close()
-        
+ 
 #Part 3 注册工具，import时自动注册
 tool_registry.register(ToolSpec(
             name="parse_file_tool",
@@ -158,7 +144,31 @@ tool_registry.register(ToolSpec(
             description="Parse a file",
             input_schema={"file_id": "str",
                           "operator_id": "str"},
-            output_schema= "ToolResult",
+            output_schema= {
+                "tool_name": "str",
+                "ok": "bool",
+                "error_type": "Optional[ErrorType]",
+                "error_message": "Optional[str]",
+                "data": {
+                    "id": "str",
+                    "project_id": "str",
+                    "file_type": "str",
+                    "version": "int",
+                    "original_name": "Optional[str]",
+                    "parse_status": "str",
+                    "validation_status": "str",
+                    "locked": "bool",
+                    "created_at": "datetime",
+                    "is_parsed": "bool",
+                    "is_validation_ok": "bool",
+                    "is_ready_for_validate": "bool",
+                    "is_ready_for_summary": "bool"
+                    },
+                "explanation": "Optional[str]",
+                "side_effect": "bool",
+                "irreversible": "bool",
+                "audit_ref_id": "Optional[str]"
+            },
             risk_profile=ToolRiskProfile(
                 modifies_persistent_data=True,
                 irreversible=False,#解析虽然会修改文件记录的状态，但不属于不可逆操作，因为如果不成功，可以重新parse

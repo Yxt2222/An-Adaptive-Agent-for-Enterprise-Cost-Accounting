@@ -1,5 +1,5 @@
 # app/services/excel_ingest_service.py
-from typing import List, Type
+from typing import List
 import pandas as pd
 from uuid import uuid4
 from sqlalchemy.orm import Session
@@ -400,9 +400,11 @@ class ExcelIngestService:
                 return LogisticsType.OTHER
         #file record是入库了的
         logistics_file = self.file_service.create_update_file_record(
+            original_name=f"manual_logistics_{uuid4()}.xlsx",
             project_id=project_id,
             file_type=FileType.manual,
-            operator_id=operator_id
+            operator_id=operator_id,
+            storage_path='',
         )
         logistics_item = LogisticsItem(
                 id=str(uuid4()),    
@@ -422,14 +424,14 @@ class ExcelIngestService:
         project_id: str,
         raw_name: str,
         operator_id: str,
-        spec: str = None,
-        quantity: float = None,
-        unit: str = None,
-        material_grade: str = None,
-        weight_kg: float = None,
-        unit_price: float = None,
-        subtotal: float = None,
-        supplier: str = None,
+        spec: str | None = None,
+        quantity: float | None = None,
+        unit: str | None = None,
+        material_grade: str | None = None,
+        weight_kg: float | None = None,
+        unit_price: float | None = None,
+        subtotal: float | None = None,
+        supplier: str | None = None,
     ) -> tuple[FileRecord, MaterialItem]:
         '''
         用户手动添加MaterialItem记录
@@ -437,9 +439,11 @@ class ExcelIngestService:
         from app.db.enums import CostItemStatus
         
         material_file = self.file_service.create_update_file_record(
+            original_name=f"manual_material_{uuid4()}.xlsx",
             project_id=project_id,
             file_type=FileType.manual,
-            operator_id=operator_id
+            operator_id=operator_id,
+            storage_path='',
         )
         
         material_item = MaterialItem(
@@ -468,12 +472,12 @@ class ExcelIngestService:
         project_id: str,
         raw_name: str,
         operator_id: str,
-        spec: str = None,
-        quantity: float = None,
-        unit: str = None,
-        unit_price: float = None,
-        subtotal: float = None,
-        supplier: str = None,
+        spec: str | None = None,
+        quantity: float | None = None,
+        unit: str | None = None,
+        unit_price: float | None = None,
+        subtotal: float | None = None,
+        supplier: str | None = None,
     ) -> tuple[FileRecord, PartItem]:
         '''
         用户手动添加PartItem记录
@@ -481,9 +485,11 @@ class ExcelIngestService:
         from app.db.enums import CostItemStatus
         
         part_file = self.file_service.create_update_file_record(
+            original_name=f"manual_part_{uuid4()}.xlsx",
             project_id=project_id,
             file_type=FileType.manual,
-            operator_id=operator_id
+            operator_id=operator_id,
+            storage_path='',
         )
         
         part_item = PartItem(
@@ -509,12 +515,12 @@ class ExcelIngestService:
         project_id: str,
         raw_group: str,
         operator_id: str,
-        work_quantity: float = None,
-        unit: str = None,
-        unit_price: float = None,
-        extra_subsidies: float = None,
-        ton_bonus: float = None,
-        subtotal: float = None,
+        work_quantity: float | None = None,
+        unit: str | None = None,
+        unit_price: float | None = None,
+        extra_subsidies: float | None = None,
+        ton_bonus: float | None = None,
+        subtotal: float | None = None,
     ) -> tuple[FileRecord, LaborItem]:
         '''
         用户手动添加LaborItem记录
@@ -522,9 +528,11 @@ class ExcelIngestService:
         from app.db.enums import CostItemStatus
         
         labor_file = self.file_service.create_update_file_record(
+            original_name=f"manual_labor_{uuid4()}.xlsx",
             project_id=project_id,
             file_type=FileType.manual,
-            operator_id=operator_id
+            operator_id=operator_id,
+            storage_path='',
         )
         
         labor_item = LaborItem(

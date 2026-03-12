@@ -5,7 +5,7 @@ import sqlite3
 
 from app.agentic.schemas.tool_result import ToolResult
 from app.agentic.schemas.error_type import ErrorType
-from app.agentic.schemas.dto.cost_summary_dto import CostSummaryDTO
+from app.agentic.schemas.dto.cost_summary_dto import CostBreakdownDTO, CostSummaryDTO
 
 from app.services.cost_calculation_service import CostCalculationService
 from app.services.audit_log_service import AuditLogService
@@ -150,8 +150,7 @@ def generate_cost_summary_tool(
             irreversible=False,
             audit_ref_id=None,
         )
-    finally:
-        db.close()
+ 
 #Part 3 注册工具，import时自动注册
 tool_registry.register(ToolSpec(
             name="generate_cost_summary_tool",
@@ -163,7 +162,26 @@ tool_registry.register(ToolSpec(
                           "labor_file_id": "str",
                           "logistics_file_id": "str",
                           "operator_id": "str"},
-            output_schema= "ToolResult",
+            output_schema={
+                "tool_name": "str",
+                "ok": "bool",
+                "error_type": "Optional[ErrorType]",
+                "error_message": "Optional[str]",
+                "data": {
+                    "id": "str",
+                    "project_id": "str",
+                    "version": "int",
+                    "status": "str",
+                    "cost": "CostBreakdownDTO",
+                    "source_files": "Dict[str, str]",
+                    "calculated_at": "datetime",
+                    "replaces_cost_summary_id": "Optional[str] = None",
+                },
+                "explanation": "Optional[str]",
+                "side_effect": "bool",
+                "irreversible": "bool",
+                "audit_ref_id": "Optional[str]"
+            },
             risk_profile=ToolRiskProfile(
                 modifies_persistent_data=True,
                 irreversible=True,

@@ -1,4 +1,8 @@
 # app/models/cost_summary.py
+from typing import Optional
+
+from typing import Optional
+
 from sqlalchemy import (
     Column,
     String,
@@ -83,6 +87,11 @@ class CostSummary(Base):
         nullable=False,
         comment="Creation timestamp"
     )
+    
+    # df report管理储存信息
+    report_file_name: Optional[str]
+    report_storage_path: Optional[str]
+    report_generated_at: Optional[datetime]
 
     # =========
     # Optional: representation

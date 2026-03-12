@@ -10,11 +10,11 @@ from app.agentic.schemas.tool_spec import ToolSpec
 from app.agentic.schemas.risk_profile import ToolRiskProfile
 from app.agentic.tools.registry import tool_registry
 
-from openai import AsyncOpenAI,OpenAI
-import asyncio
+from openai import OpenAI
+
 #全局单例，减少重复创建client的开销
  
-class ExtractedInfo(BaseModel):
+class ExtractedProjectInfo(BaseModel):
     raw_name: Optional[str] = None
     contract_code: Optional[str] = None
     business_code: Optional[str] = None
@@ -66,7 +66,7 @@ client = OpenAI(
         base_url="http://localhost:11434/v1"
     )
 
-def call_qwen(user_input: str) -> ExtractedInfo:
+def call_qwen(user_input: str) -> ExtractedProjectInfo:
     #异步调用每次都会创建event loop,关闭event loop,重建loop，开销大，费时多。
 
     prompt = build_prompt(user_input)
@@ -80,7 +80,7 @@ def call_qwen(user_input: str) -> ExtractedInfo:
     content = response.choices[0].message.content or "{}"
     parsed = json.loads(content)
 
-    return ExtractedInfo(**parsed)
+    return ExtractedProjectInfo(**parsed)
     
 
 def extract_project_info_tool(user_message: str) -> ToolResult:
@@ -133,12 +133,12 @@ tool_registry.register(ToolSpec(
         input_schema={
             "user_input": "str"
         },
-        output_schema='''{
+        output_schema={
             "raw_name":  "str",
             "contract_code": "str",
             "business_code":"str",
             "spec_tags": "list[str]" 
-        }''',
+        },
         risk_profile=ToolRiskProfile(
             modifies_persistent_data=False,
             irreversible=False,

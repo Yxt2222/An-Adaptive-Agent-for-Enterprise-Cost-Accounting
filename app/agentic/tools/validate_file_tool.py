@@ -98,8 +98,7 @@ def validate_file_tool(
             irreversible=False,
             audit_ref_id=None,
         )
-    finally:
-        db.close()
+ 
 
 #Part 3 注册工具，import时自动注册
 spec = ToolSpec(
@@ -109,7 +108,24 @@ spec = ToolSpec(
             input_schema={"db": "Session",
                           "file_id": "str",
                           "operator_id": "str"},
-            output_schema= "ToolResult",
+            output_schema= {
+                "tool_name": "str",
+                "ok": "bool",
+                "error_type": "Optional[ErrorType]",
+                "error_message": "Optional[str]",
+                "data": {
+                    "id":"str",
+                    "file_type": "str",
+                    "validation_status": "str",
+                    "summary": "ValidationSummaryDTO",
+                    "blocked_items": "List[ValidationIssueDTO]",
+                    "warning_items": "List[ValidationIssueDTO]",
+                },
+                "explanation": "Optional[str]",
+                "side_effect": "bool",
+                "irreversible": "bool",
+                "audit_ref_id": "Optional[str]"
+            } ,
             risk_profile=ToolRiskProfile(
                 modifies_persistent_data=True,
                 irreversible=False,#验证虽然会修改文件记录的状态，但不属于不可逆操作，因为可以重新修改item，然后revalidate

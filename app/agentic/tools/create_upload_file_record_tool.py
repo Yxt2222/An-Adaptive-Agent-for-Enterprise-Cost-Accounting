@@ -151,8 +151,7 @@ def create_update_file_record_tool(
             side_effect=False,
             irreversible=False,
         )
-    finally:
-        db.close()
+ 
 
 
 # ---- ToolSpec ----
@@ -168,7 +167,31 @@ tool_registry.register(ToolSpec(
             "original_name": "str",
             "operator_id": "str",
         },
-        output_schema="ToolResult",
+        output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_message": "Optional[str]",
+            "data": {
+                "id": "str",
+                "project_id": "str",
+                "file_type": "str",
+                "version": "int",
+                "original_name": "Optional[str]",
+                "parse_status": "str",
+                "validation_status": "str",
+                "locked": "bool",
+                "created_at": "datetime",
+                "is_parsed": "bool",
+                "is_validation_ok": "bool",
+                "is_ready_for_validate": "bool",
+                "is_ready_for_summary": "bool",
+            },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
         risk_profile=ToolRiskProfile(
             modifies_persistent_data=True,
             irreversible=False,

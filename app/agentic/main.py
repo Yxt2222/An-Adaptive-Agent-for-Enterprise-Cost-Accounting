@@ -1,4 +1,4 @@
-from app.agentic.execution.tool_registry import ToolRegistry, ToolSpec
+from app.agentic.tools.registry import ToolRegistry, ToolSpec
 from app.agentic.execution.executor import PythonExecutor
 from app.agentic.orchestration.semantic_guard import SemanticGuard
 from app.agentic.orchestration.trace import TraceRecorder

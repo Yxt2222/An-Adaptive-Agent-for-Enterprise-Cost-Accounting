@@ -60,6 +60,7 @@ def list_raw_uploads_tool(
     audit = AuditLogService(db)
     raw_upload_service = RawUploadRecordService(db, audit)
     try:
+        #todo raw_file list 不能直接给toolresult.data，需要转换成dto
         records: List[RawUploadRecord] = raw_upload_service.list_by_run(agent_run_id=agent_run_id, 
                                                                         file_type=file_type, 
                                                                         status=status)
@@ -84,7 +85,7 @@ def list_raw_uploads_tool(
         return ToolResult(
             tool_name="list_raw_uploads_tool",
             ok=True,
-            data={"uploads": data},
+            data=data,
             explanation="Raw uploads retrieved successfully.",
             side_effect=False,
             irreversible=False,
@@ -99,9 +100,7 @@ def list_raw_uploads_tool(
             error_message=error_message,
             explanation=explanation,
         )
-    finally:
-        db.close()
-        
+
 #Part 3 注册工具，import时自动注册
 tool_registry.register(ToolSpec(
             name="list_raw_uploads_tool",
@@ -110,7 +109,30 @@ tool_registry.register(ToolSpec(
             input_schema={"agent_run_id": "str",
                           "file_type": "str | None",
                           "status": "str | None"},
-            output_schema= "ToolResult",
+            output_schema=  {
+                "tool_name": "str",
+                "ok": "bool",
+                "error_type": "Optional[ErrorType]",
+                "error_message": "Optional[str]",
+                "data": {
+                    "raw_upload_id":"str",
+                    "agent_run_id": "str",
+                    "original_filename": "str",
+                    "storage_path": "str",
+                    "upload_time": "str",
+                    "file_type": "str | None",
+                    "version": "int",
+                    "file_hash": "str",
+                    "size": "int",
+                    "status": "str",
+                    "detected_columns": "List[str]",
+                    "probe_error": "Optional[str]",
+                },
+                "explanation": "Optional[str]",
+                "side_effect": "bool",
+                "irreversible": "bool",
+                "audit_ref_id": "Optional[str]"
+            },
             risk_profile=ToolRiskProfile(
                 modifies_persistent_data=False,
                 irreversible=False,

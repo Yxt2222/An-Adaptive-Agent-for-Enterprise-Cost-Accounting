@@ -1,5 +1,5 @@
 # app/agentic/execution/tool_registry.py
-from typing import Any, Optional
+from typing import Any, Dict, Optional
 from pydantic import BaseModel
 from app.agentic.schemas.error_type import ErrorType
 
@@ -24,7 +24,7 @@ class ToolResult(BaseModel):
     error_type: Optional[ErrorType] = None
     error_message: Optional[str] = None
 
-    data: Optional[Any]  = None
+    data: Optional[Dict[str, Any]]  = None
     explanation: Optional[str] = None
     # explanation 是给 LLM 的自然语言解释 + 下一步建议
 

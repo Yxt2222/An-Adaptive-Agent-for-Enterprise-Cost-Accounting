@@ -19,7 +19,7 @@ class ToolSpec(BaseModel):
     func: Callable[..., Any]
     description: str#play book of a tool，做什么，前置条件，副作用，风险
     input_schema:Dict[str,Any]#定义输入参数的 schema
-    output_schema:str#定义输出参数的 schema
+    output_schema:Dict[str,Any]#定义输出参数的 schema
     risk_profile:ToolRiskProfile#风险名单
     example_usage:Optional[str] = None
 

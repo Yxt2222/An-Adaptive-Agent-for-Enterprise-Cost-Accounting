@@ -30,7 +30,7 @@ class PythonExecutor:
             return ToolResult(
                 tool_name=tool_name,
                 ok=False,
-                error_type=ErrorType.TOOL_NOT_ALLOWED,
+                error_type=ErrorType.PERMISSION_DENIED,
                 error_message=f"{tool_name} is not allowed in current state.",
                 explanation="This tool cannot be used in the current FSM state.",
                 side_effect=False,

@@ -6,7 +6,7 @@ from app.services.item_edit_service import ItemEditService
 from app.services.validation_service import ValidationReport, ValidationService
 
 from app.agentic.schemas.dto.validate_report_dto import ValidationReportDTO
-from app.models.batchEditItemsInput import BatchEditItemsInput 
+from app.models.batchEditItemsInput import BatchEditItemsInput, BatchEditItemsOutput 
 from app.db.session import get_session
 
 import sqlite3
@@ -47,9 +47,18 @@ def _classify_batch_edit_items_error(e: Exception) -> tuple[ErrorType, str, str]
 
 # Part 2 Tool 实现
 def batch_edit_items_tool(args: dict) -> ToolResult:
+    type_maping = {
+        "material" : "material_cost",
+        "part" : "part_cost",
+        "labor" : "labor_cost",
+        "logistics" : "logistics_cost"
+    }
     try:
 
         input_dto = BatchEditItemsInput(**args)
+        file_type = type_maping.get(input_dto.item_type_lst[0])
+        edited_count = len(input_dto.item_id_lst)
+        edit_summary = {"file_type": file_type, "edited_count": edited_count}
 
     except Exception as e:
 
@@ -84,10 +93,14 @@ def batch_edit_items_tool(args: dict) -> ToolResult:
         
         if isinstance(result, ValidationReport):
             report_dto = ValidationReportDTO.from_domain_model(result)
+            batch_edit_output = BatchEditItemsOutput(
+                edit_summary=edit_summary,
+                validation_report=report_dto
+            )
             return ToolResult(
             ok=True,
             tool_name="batch_edit_items_tool",
-            data=report_dto.model_dump(),
+            data=batch_edit_output.model_dump(),
             explanation=f"Batch edit completed with validation triggered. Validation report included in the output.",
         )
         else:
@@ -113,8 +126,7 @@ def batch_edit_items_tool(args: dict) -> ToolResult:
             side_effect=False,
             irreversible=False,
         )
-    finally:
-        db.close()
+ 
 
 # Part 3 ToolSpec 注册
 tool_registry.register(ToolSpec(
@@ -129,7 +141,24 @@ tool_registry.register(ToolSpec(
     "item_id_lst": "List[str]",
     "updates_lst": "List[Dict[str, Any]]",
     "operator_id": "str"},
-    output_schema="ToolResult",
+    output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_message": "Optional[str]",
+            "data": {
+                    "id":"str",
+                    "file_type": "str",
+                    "validation_status": "str",
+                    "summary":"ValidationSummaryDTO",
+                    "blocked_items": "List[ValidationIssueDTO]",
+                    "warning_items": "List[ValidationIssueDTO]",
+                    },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
     risk_profile=ToolRiskProfile(
         modifies_persistent_data=True,
         irreversible=False,#FileRecord不允许删除，但是可以被覆盖

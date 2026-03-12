@@ -6,7 +6,7 @@ from app.services.item_edit_service import ItemEditService
 from app.services.validation_service import ValidationService
 
 from app.agentic.schemas.dto.validate_report_dto import ValidationReportDTO
-from app.models.batchEditItemsInput import BatchConfirmWarningItemsInput
+from app.models.batchEditItemsInput import BatchConfirmItemsInput, BatchConfirmItemOutput
 from app.db.session import get_session
 
 import sqlite3
@@ -47,9 +47,34 @@ def _classify_batch_confirm_items_error(e: Exception) -> tuple[ErrorType, str, s
 
 # Part 2 Tool 实现
 def batch_confirm_items_tool(args: dict) -> ToolResult:
+    '''
+    args:
+    {
+    "item_type_lst": ["material"],
+    "item_id_lst": ["item1id", "item2id", ...],
+    "error_code_lst": ["code1", "code2", ...],
+    "operator_id": "user123"
+    }
+    '''
+    
+    type_maping = {
+        "material" : "material_cost",
+        "part" : "part_cost",
+        "labor" : "labor_cost",
+        "logistics" : "logistics_cost"
+    }
     try:
 
-        input_dto = BatchConfirmWarningItemsInput(**args)
+        input_dto = BatchConfirmItemsInput(**args)
+        file_type = type_maping.get(input_dto.item_type_lst[0])
+        confirmed_count = len(input_dto.item_id_lst)
+        categories = input_dto.error_code_lst
+        confirm_summary = {
+            "file_type": file_type, 
+            "confirmed_count": confirmed_count,
+            "categories": categories,
+        }
+        
 
     except Exception as e:
 
@@ -80,10 +105,14 @@ def batch_confirm_items_tool(args: dict) -> ToolResult:
         db.commit()
     
         report_dto = ValidationReportDTO.from_domain_model(result)
+        batch_confirm_output = BatchConfirmItemOutput(
+                confirm_summary=confirm_summary,
+                validation_report=report_dto
+            )
         return ToolResult(
             ok=True,
             tool_name="batch_confirm_items_tool",
-            data=report_dto.model_dump(),
+            data=batch_confirm_output.model_dump(),
             explanation=f"Batch confirm completed with validation triggered. Validation report included in the output.",
         )
         
@@ -99,8 +128,7 @@ def batch_confirm_items_tool(args: dict) -> ToolResult:
             side_effect=False,
             irreversible=False,
         )
-    finally:
-        db.close()
+
 
 # Part 3 ToolSpec 注册
 tool_registry.register(ToolSpec(
@@ -114,7 +142,24 @@ tool_registry.register(ToolSpec(
     "item_type_lst": "List[str]",
     "item_id_lst": "List[str]",
     "operator_id": "str"},
-    output_schema="ToolResult",
+    output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_message": "Optional[str]",
+            "data": {
+                    "id":"str",
+                    "file_type": "str",
+                    "validation_status": "str",
+                    "summary":"ValidationSummaryDTO",
+                    "blocked_items": "List[ValidationIssueDTO]",
+                    "warning_items": "List[ValidationIssueDTO]",
+            },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
     risk_profile=ToolRiskProfile(
         modifies_persistent_data=True,
         irreversible=False,#FileRecord不允许删除，但是可以被覆盖

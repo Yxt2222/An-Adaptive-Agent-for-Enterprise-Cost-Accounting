@@ -1,7 +1,6 @@
 # app/services/validation_service.py
 from dataclasses import dataclass, field
 from typing import Dict, List, Any
-from unittest import result
 from decimal import Decimal
 @dataclass
 class ItemValidationResult:

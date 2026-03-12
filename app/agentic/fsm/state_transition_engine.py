@@ -1,18 +1,18 @@
 #app/agentic/fsm/state_transition_engine.py
+from datetime import datetime
 
 from app.agentic.fsm.enums import CostCalcState
 from app.agentic.fsm.FSMContect import FSMContext
-from app.agentic.fsm.global_setting import RETRYABLE_ERRORS, FATAL_ERRORS, REQUIRED_FILE_TYPES, VALID_VALIDATION_RESULTS, RETURN_VALIDATION_REPORT_TOOLS
-from app.agentic.fsm.Transition import TransitionDecision
+from app.agentic.fsm.global_setting import RETRYABLE_ERRORS, FATAL_ERRORS, REQUIRED_FILE_TYPES, VALID_VALIDATION_RESULTS, RETURN_VALIDATION_REPORT_TOOLS,  TOOLALLOWLIST_FOR_EACH_STATE
+from app.agentic.fsm.transition_decision import TransitionDecision
 
-from typing import Callable, Optional, Dict, Any
+from typing import Callable, Optional, Dict, Tuple
 from app.agentic.schemas.dto.validate_report_dto import ValidationReportDTO
 from app.agentic.schemas.error_type import ErrorType
 from app.agentic.schemas.tool_result import ToolResult
 
 from app.agentic.tools.registry import tool_registry#注册所有工具以测试用，完工后删
 from app.agentic.tools.auto_discover import discover_tools
-from app.routes import report#注册所有工具以测试用，完工后删
 discover_tools()
 
 #决策引擎
@@ -22,8 +22,16 @@ class TransitionEngine:
     CostCalcFSM 负责根据上一步的 FSMContext 和这一步的 ToolResult 裁决下一步 state 怎么转移，
     维护 Context，并且负责管理和展示 State 相关派生属性。
     '''
-    def __init__(self, context: FSMContext):
-        self.ctx = context
+    def __init__(self, context: FSMContext | None = None,agent_run_id:str|None = None):
+        if context is not None:
+            self.ctx = context 
+        elif agent_run_id is not None:
+            self.ctx = FSMContext(
+                current_state=CostCalcState.S0_INIT,
+                agent_run_id=agent_run_id,
+            )
+        else:
+            raise ValueError("Either context or agent_run_id must be provided to initialize TransitionEngine.")
         #-----------------------------State Dispatch -----------------------------
         self.state_dispatchers: Dict[CostCalcState, Callable] = {
             CostCalcState.S0_INIT: self._handle_s0,
@@ -32,27 +40,50 @@ class TransitionEngine:
             CostCalcState.S3_PARSE_FILES: self._handle_s3,
             CostCalcState.S4_VALIDATION_CORRECTION_LOOP: self._handle_s4,
             CostCalcState.S5_GENERATE_COST_SUMMARY: self._handle_s5,
+            CostCalcState.S6_GENERATE_COST_REPORT: self._handle_s6,
+            CostCalcState.S7_PUBLISH_AND_SUMMARIZE: self._handle_s7,
             CostCalcState.S_WAIT_USER: lambda: TransitionDecision(next_state=CostCalcState.S_WAIT_USER, pause=True),
             
         }
         #----------------------------Context Update Dispatch----------------------
         self.ctxupdate_dispatchers: Dict[CostCalcState, Callable[[ToolResult], None]] = {
-            CostCalcState.S0_INIT: lambda result: None,#S0状态不处理tool result
-            CostCalcState.S1_INPUT_GATE: self._updatectx_s1,#S1状态不处理tool result
+            CostCalcState.S0_INIT: lambda result: None, #S0状态不处理tool result
+            CostCalcState.S1_INPUT_GATE: self._updatectx_s1,
             CostCalcState.S2_CREATE_PROJECT: self._ctxupdate_s2,
             CostCalcState.S3_PARSE_FILES: self._ctx_update_s3,
             CostCalcState.S4_VALIDATION_CORRECTION_LOOP: self._ctx_update_s4,
-            CostCalcState.S5_GENERATE_COST_SUMMARY: self._generate_cost_summary_s5
+            CostCalcState.S5_GENERATE_COST_SUMMARY: self._ctx_update_s5,
+            CostCalcState.S6_GENERATE_COST_REPORT: self._ctx_update_s6,
+            CostCalcState.S7_PUBLISH_AND_SUMMARIZE: self._ctx_update_s7,
         }
         # Public API
+    def initilize(self, agent_run_id:str) -> FSMContext:
+        '''
+        初始化 Context，设置初始状态 S0_INIT 和 agent_run_id
+        '''
+  
+        self.ctx = FSMContext(
+            current_state=CostCalcState.S0_INIT,
+            agent_run_id=agent_run_id,
+        )
+        return self.ctx
+
+    def get_allowed_tools(self)-> set[str]:
+        '''
+        根据当前状态，从全局配置中获取允许调用的工具列表
+        '''
+        current_state = self.ctx.current_state
+        return TOOLALLOWLIST_FOR_EACH_STATE.get(current_state, set())
             
     # ===============================
     # Step Execution  
     # ===============================
-    def run_one_step(self, tool_result: Optional[ToolResult]) -> FSMContext:
+    def run_one_step(self, tool_result: Optional[ToolResult]) -> Tuple[FSMContext, TransitionDecision]:
         # 1. 更新 context
+        # todo: 思考思考如果没有toolresult传入，如何更新状态。
         if tool_result:
             self._update_context(tool_result)
+            
         # 2. 执行状态裁决
         decision = self._execute_state(self.ctx.current_state)
 
@@ -64,7 +95,7 @@ class TransitionEngine:
         
         #5. 消费瞬态信号
         self._clear_transient_signals()
-        return self.ctx
+        return self.ctx, decision
 
 
     # ===============================
@@ -166,6 +197,7 @@ class TransitionEngine:
     
     #--------------------- S0_init handler ----------------------------------------------
     def _handle_s0(self) -> TransitionDecision:
+        
         return TransitionDecision(
             next_state=CostCalcState.S1_INPUT_GATE
         )
@@ -416,7 +448,7 @@ class TransitionEngine:
             )
 
 # -----------------------------S5_GENERATE_COST_SUMMARY handler ---------------------------------------------- 
-    def _generate_cost_summary_s5(self, result: ToolResult) -> None:
+    def _ctx_update_s5(self, result: ToolResult) -> None:
         if result.tool_name == "generate_cost_summary_tool":
             if result.ok and result.data:
                 cost_summary_id = result.data.get("id")
@@ -446,7 +478,83 @@ class TransitionEngine:
         )
 
 # -----------------------------S6_GENERATE_COST_REPORT handler ---------------------------------------------- 
+    def _ctx_update_s6(self, result: ToolResult) -> None:
+        if result.tool_name == "generate_cost_report_tool":
+            if result.ok and result.data:
+                report_storage_path = result.data.get("storage_path")
+                if report_storage_path:
+                    self.ctx.report_storage_path = report_storage_path
 
 
+    def _handle_s6(self) -> TransitionDecision:
+        if not self.ctx.report_storage_path:
+            return TransitionDecision(
+                next_state=self.ctx.current_state,
+                action={
+                    "type": "call_tool",
+                    "tool_name": "generate_cost_report_tool",
+                    "args":{
+                        "cost_summary_id": self.ctx.cost_summary_id,
+                        "operator_id": self.ctx.agent_run_id,#如果没有operator_id，默认用system
+                    }
+                }
+            )
+        return TransitionDecision(
+            next_state=CostCalcState.S7_PUBLISH_AND_SUMMARIZE
+        )
+# -----------------------------S7_PUBLISH_AND_SUMMARIZE handler ---------------------------------------------- 
+    def _ctx_update_s7(self, result: ToolResult) -> None:
+        """
+        S7需要执行report推送工具并根据推送工具的结果更新ctx.publish_result字段。
+        """
+        if result.tool_name == "cost_report_publish_tool":
+            if result.ok and result.data:
+                self.ctx.publish_status = "published"
+            else:
+                self.ctx.publish_status = "failed"
+
+    def _handle_s7(self) -> TransitionDecision:
+        """
+        职责：
+        1. 询问推送意愿
+        2. 处理推送逻辑（网页 / 微信 / 钉钉 / 邮件）
+        3. 转移到 S9_DONE
+        """
+        if self.ctx.publish_status == "published":
+            return TransitionDecision(
+                next_state=CostCalcState.S8_DONE
+            )
+    
+        # 未发布，调用工具
+        return TransitionDecision(
+            next_state=CostCalcState.S7_PUBLISH_AND_SUMMARIZE,
+            action={
+                "type": "call_tool",
+                "tool_name": "cost_report_publish_tool",
+                "args": {
+                    "cost_summary_id": self.ctx.cost_summary_id,
+                    "user_publish_query": None,  # 询问用户获取
+                    "operator_id": self.ctx.agent_run_id,
+                }
+            }
+        )
+# -----------------------------S_8_DONE handler (todo)---------------------------------------------- 
+        
+# -----------------------------S_WAIT_USER handler (todo)---------------------------------------------- 
+    def _handle_s_wait_user(self) -> TransitionDecision:
+        """
+        S_WAIT_USER 是一个特殊状态，表示 FSM 在等待用户输入以继续流程。
+        进入 S_WAIT_USER 的原因会被记录在 ctx.pause_reason 中，以便前端展示给用户并指导用户下一步操作。
+        从 S_WAIT_USER 恢复的条件是用户输入满足当前状态的要求，这需要前端根据 ctx.required_inputs 提供相应的输入界面。
+        一旦用户输入满足要求，FSM 将根据当前状态重新评估并决定下一个状态。
+        """
+        return TransitionDecision(
+            next_state=CostCalcState.S_WAIT_USER,
+            pause=True
+        )
+
+# -----------------------------S_ERR_ESCALATE handler (todo)---------------------------------------------- 
+        
+        
 if __name__ == "__main__":
    pass

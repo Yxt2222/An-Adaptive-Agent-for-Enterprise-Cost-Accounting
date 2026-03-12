@@ -1,6 +1,6 @@
 from typing import Dict, Any, List
 from sqlalchemy.orm import Session
- 
+
 from app.models.file_record import FileRecord
 from app.models.material_item import MaterialItem
 from app.models.part_item import PartItem
@@ -110,16 +110,15 @@ class ItemEditService:
             self.validation_service.validate_file(file_record)
             self.db.flush()
         return need_validate
-  
-           
+
     def batch_edit_items(self,
-                         item_type_lst:List[str],
-                         item_id_lst:List[str],
-                         updates_lst:List[Dict[str, Any]],
-                         operator_id:str) -> None | ValidationReport:
+                        item_type_lst:List[str],
+                        item_id_lst:List[str],
+                        updates_lst:List[Dict[str, Any]],
+                        operator_id:str) -> None | ValidationReport:
         """
         Batch edit items. All items must belong to the same source file. Validation is triggered after all edits are done.
-        :param item_type_lst: List of item types, only allow four types:material,part, labor, logistics
+        :param item_type_lst: List of item types, only allow four types:[material,part, labor, logistics]
         :param item_id_lst: List of item IDs to modify
         :param updates_lst: List of dictionaries of field updates, corresponding to each item
         :param operator_id: User ID of the operator performing the edit
@@ -178,7 +177,7 @@ class ItemEditService:
         item = self._load_item(item_type, item_id)
         file_record = self._get_file_record(item)
         # manual LogisticItem is not allowed to confirm
- 
+
         if item_type == "logistics" and file_record.file_type == FileType.manual:
             raise RuntimeWarning("Manual LogisticsItem cannot be confirmed")
         
@@ -187,7 +186,7 @@ class ItemEditService:
 
         if item.status != CostItemStatus.warning:
             raise RuntimeWarning("Only warning items can be confirmed")
-         
+        
         old_status = item.status
         item.status = CostItemStatus.confirmed
 
@@ -209,9 +208,9 @@ class ItemEditService:
             self.db.flush()
         
     def batch_confirm_items(self,
-                         item_type_lst:List[str],
-                         item_id_lst:List[str],
-                         operator_id:str) -> ValidationReport:
+                        item_type_lst:List[str],
+                        item_id_lst:List[str],
+                        operator_id:str) -> ValidationReport:
         """
         Batch confirm items. All items must belong to the same source file. Validation is triggered after all confirmations are done.
         :param item_type_lst: List of item types, only allow four types:material,part, labor, logistics
@@ -251,7 +250,7 @@ class ItemEditService:
         validation_report = self.validation_service.validate_file(file_record)
         self.db.flush()
         return validation_report
- 
+
         
     def _allowed_edit_fields(self, item) -> tuple[set[str], set[str]]:
         '''

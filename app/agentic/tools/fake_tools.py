@@ -37,7 +37,7 @@ tool_registry.register(
             func=create_project_success_tool,
             description="Mock create project success",
             input_schema={},
-            output_schema='str',
+            output_schema={"echo": "str"},
             risk_profile=ToolRiskProfile(
                 modifies_persistent_data=True,
                 irreversible=True
@@ -50,7 +50,7 @@ tool_registry.register(
             func=create_project_failure_tool,
             description="Mock create project failure",
             input_schema={},
-            output_schema='str',
+            output_schema={"echo": "str"},
             risk_profile=ToolRiskProfile(
                 modifies_persistent_data=True,
                 irreversible=True

@@ -1,8 +1,11 @@
+import datetime
+from pathlib import Path
 from typing import Optional
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import SQLAlchemyError, OperationalError
 import sqlite3
 
+from app.agentic.schemas.dto.cost_report_file_dto import CostReportFileDTO
 from app.agentic.schemas.tool_result import ToolResult
 from app.agentic.schemas.error_type import ErrorType
 from app.agentic.schemas.dto.cost_summary_dto import CostSummaryDTO
@@ -14,6 +17,7 @@ from app.services.audit_log_service import AuditLogService
 from app.agentic.schemas.tool_spec import ToolSpec
 from app.agentic.schemas.risk_profile import ToolRiskProfile
 from app.agentic.tools.registry import tool_registry
+from app.services.cost_report_service import CostReportService
 
 #Part 1 错误分类
 def _classify_generate_report_error(e: Exception) -> tuple[ErrorType, str, str]:
@@ -58,7 +62,11 @@ def _classify_generate_report_error(e: Exception) -> tuple[ErrorType, str, str]:
             )
     return ErrorType.SYSTEM_ERROR, msg, explain
 
-#Part 2 工具实现
+
+
+# ===============================
+# 工具实现
+# ===============================
 def generate_cost_report_tool(
     *,
     db: Session,
@@ -66,79 +74,125 @@ def generate_cost_report_tool(
     operator_id: str,
 ) -> ToolResult:
     """
-    Tool: generate_cost_summary_report
-
-    Preconditions:
-    - CostSummary with cost_summary_id already exists (created in S5).
-    """
-
-    audit = AuditLogService(db)
-    service = CostCalculationService(db=db, audit_log_service=audit)
-    cost_summary = db.get(CostSummary, cost_summary_id)
+    Tool: generate_cost_report_tool
     
-    if not cost_summary:
-        return ToolResult(
-            tool_name="generate_cost_summary_tool",
-            ok=False,
-            error_type=ErrorType.INPUT_ERROR,
-            error_message=f"CostSummary with id {cost_summary_id} not found.",
-            data=None,
-            explanation="The specified CostSummary does not exist. Please check the cost_summary_id and try again.",
-            side_effect=False,
-            irreversible=False,
-            audit_ref_id=None,
-        )
-        
+    Side effects:
+    - Generates Excel cost report file
+    - Updates CostSummary report fields (report_file_name, report_storage_path, report_generated_at)
+    - Creates audit log entry
+    
+    Preconditions:
+    - CostSummary with cost_summary_id must exist
+    - CostSummary status must be ACTIVE
+    
+    Returns:
+        CostReportFileDTO with metadata for frontend download
+    """
+    # 初始化Service层
+    audit = AuditLogService(db)
+    cost_calculation_service = CostCalculationService(db=db, audit_log_service=audit)
+    cost_report_service = CostReportService(
+        db=db,
+        audit_log_service=audit,
+        cost_calculation_service=cost_calculation_service,
+    )
+
     try:
-        # 显式事务边界：tool 层负责提交/回滚，executor 不要重复做
-        df_report = service.generate_df_report(
-            cost_summary=cost_summary,
+        # 委托给Service层处理所有业务逻辑
+        report_data = cost_report_service.generate_report(
+            cost_summary_id=cost_summary_id,
             operator_id=operator_id,
         )
- 
+
+        db.commit()
+
+        # 构造DTO返回
+        dto = CostReportFileDTO(
+            cost_summary_id=report_data["cost_summary_id"],
+            project_id=report_data["project_id"],
+            calculation_version=report_data["calculation_version"],
+            file_name=report_data["file_name"],
+            storage_path=report_data["storage_path"],
+            mime_type=report_data["mime_type"],
+            generated_at=report_data["generated_at"],
+            download_url=report_data["download_url"],
+        )
 
         return ToolResult(
-            tool_name="generate_cost_summary_tool",
+            tool_name="generate_cost_report_tool",
             ok=True,
-            data=df_report,#todo
+            data=dto.model_dump(mode="json"),
             explanation=(
-                "cost_summary report generated successfully. "
+                "Cost report Excel generated successfully. "
+                f"File: {dto.file_name}. "
+                "Ready for frontend download."
             ),
-            side_effect=False,
-            irreversible=True,
+            side_effect=True,
+            irreversible=False,
+            audit_ref_id=report_data["cost_summary_id"],
         )
 
     except Exception as e:
         db.rollback()
-        et,msg,explain =_classify_generate_report_error(e)
+        error_type, error_message, explanation = _classify_generate_report_error(e)
+        
         return ToolResult(
-            tool_name="generate_cost_summary_tool",
+            tool_name="generate_cost_report_tool",
             ok=False,
-            error_type=et,
-            error_message=str(e),
+            error_type=error_type,
+            error_message=error_message,
             data=None,
-            explanation=explain,
+            explanation=explanation,
             side_effect=False,
             irreversible=False,
             audit_ref_id=None,
         )
-    finally:
-        db.close()
-#Part 3 注册工具，import时自动注册
-tool_registry.register(ToolSpec(
-            name="generate_cost_report_tool",
-            func=generate_cost_report_tool,
-            description="Generate cost report",
-            input_schema={"cost_summary_id":"str",                     
-                          "operator_id": "str"},
-            output_schema= "ToolResult",
-            risk_profile=ToolRiskProfile(
-                modifies_persistent_data=False,
-                irreversible=False,               
-                deletes_data=False,
-                affects_multiple_records=False,
-                require_human_auth=False
-            )
-        )
+
+
+# ===============================
+# ToolSpec 注册
+# ===============================
+tool_registry.register(
+    ToolSpec(
+        name="generate_cost_report_tool",
+        func=generate_cost_report_tool,
+        description=(
+            "Generate an Excel cost report from an existing active CostSummary. "
+            "The report includes project info, material costs, part costs, "
+            "labor costs, and logistics costs with human-readable formatting. "
+            "Updates CostSummary with report metadata and returns "
+            "download-oriented file metadata for frontend delivery."
+        ),
+        input_schema={
+            "cost_summary_id": "str",
+            "operator_id": "str",
+        },
+        output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_name": "Optional[str]",
+            "data": {
+                "cost_summary_id": "str",
+                "project_id": "str",
+                "calculation_version": "int",
+                "file_name": "str",
+                "storage_path": "str",
+                "mime_type": "str",
+                "generated_at": "str",
+                "download_url": "str",
+            },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
+        risk_profile=ToolRiskProfile(
+            modifies_persistent_data=True,  # 更新CostSummary字段
+            irreversible=False,
+            deletes_data=False,
+            affects_multiple_records=False,  # 只更新一个CostSummary
+            require_human_auth=False,
+        ),
     )
- 
+)

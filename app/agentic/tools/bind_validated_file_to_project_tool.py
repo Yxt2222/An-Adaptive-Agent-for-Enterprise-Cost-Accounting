@@ -1,6 +1,6 @@
 import shutil
 import os
-from sqlalchemy.orm import Session
+from app.db.session import get_session
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.agentic.schemas.dto.file_record_dto import FileRecordDTO
@@ -17,7 +17,6 @@ from app.agentic.tools.registry import tool_registry
 
 def bind_validated_file_to_project_tool(
     *,
-    db: Session,
     raw_upload_id: str,
     project_id: str,
     operator_id: str,
@@ -39,7 +38,7 @@ def bind_validated_file_to_project_tool(
     ]
 
     try:
-
+        db = get_session()
         raw = db.query(RawUploadRecord)\
             .filter(RawUploadRecord.id == raw_upload_id)\
             .with_for_update()\
@@ -130,8 +129,7 @@ def bind_validated_file_to_project_tool(
             error_type=ErrorType.SYSTEM_ERROR,
             error_message=str(e),
         )
-    finally:
-        db.close()
+ 
         
 # ---- ToolSpec 注册 ----
 
@@ -145,7 +143,31 @@ tool_registry.register(ToolSpec(
             "file_type": "str",
             "operator_id": "str",
         },
-        output_schema="ToolResult",
+        output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_message": "Optional[str]",
+            "data": {
+                    "id": "str",
+                    "project_id": "str",
+                    "file_type": "str",
+                    "version": "int",
+                    "original_name": "Optional[str]",
+                    "parse_status": "str",
+                    "validation_status": "str",
+                    "locked": "bool",
+                    "created_at": "datetime",
+                    "is_parsed": "bool",
+                    "is_validation_ok": "bool",
+                    "is_ready_for_validate": "bool",
+                    "is_ready_for_summary": "bool"
+                    },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
         risk_profile=ToolRiskProfile(
             modifies_persistent_data=True,
             irreversible=True,#FileRecord不允许删除，但是可以被覆盖

@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from app.db.session import get_session
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 import sqlite3
 
@@ -58,13 +58,13 @@ def _classify_confirm_error(e: Exception) -> tuple[ErrorType, str, str]:
 
 def confirm_raw_upload_tool(
     *,
-    db: Session,
     agent_run_id: str,
     raw_upload_id: str,
     operator_id: str,
 ) -> ToolResult:
     
     try:
+        db = get_session()
         audit = AuditLogService(db)
         raw_service = RawUploadRecordService(db, audit)
         raw_file_record = raw_service.get_by_id(raw_upload_id)
@@ -107,8 +107,7 @@ def confirm_raw_upload_tool(
             error_message=error_message,
             explanation=explanation,
         )
-    finally:
-        db.close()
+ 
 
 # ---- ToolSpec 注册 ----
 
@@ -121,7 +120,21 @@ tool_registry.register(ToolSpec(
             "raw_upload_id": "str",
             "operator_id": "str",
         },
-        output_schema="ToolResult",
+        output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_message": "Optional[str]",
+            "data": {   
+                "raw_upload_id": "str",
+                "confirmed_file_type": "str | None",
+                "new_status": "str",
+            },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
         risk_profile=ToolRiskProfile(
             modifies_persistent_data=True,
             irreversible=True,                  # confirmed 是单向状态

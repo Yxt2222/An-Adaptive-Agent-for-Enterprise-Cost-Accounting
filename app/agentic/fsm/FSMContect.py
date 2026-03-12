@@ -20,7 +20,7 @@ class FSMContext(BaseModel):
     4.输入门控层(Input Gate Layer):required_inputs,collected_inputs等，输入控制收敛器，保证该状态的input 能够对齐required_inputs.实现系统与状态在输入环节的对齐。
     5.上下文快照层（Recovery Layer）:context_snapshot_id等，为回滚，replay，audit,失败恢复埋钩子。
     '''
-    # 核心身份信息
+    # 核心身份信息(初始化时必须提供)
     agent_run_id: str
     current_state: CostCalcState
     # ===============================
@@ -49,7 +49,10 @@ class FSMContext(BaseModel):
     validation_reports: Dict[str, ValidationReportDTO] = Field(default_factory=dict)
     #s4 validate_Correction_Loop的文件校验报告，{“material_cost”: ValidationReport...}
     cost_summary_id: Optional[str] = None
-    #s6 generate_cost_summary状态成功后会有cost_summary_id
+    #s5 generate_cost_summary状态成功后会有cost_summary_id
+    report_storage_path: Optional[str] = None
+    #s6 generate_cost_report状态成功后会有report_storage_path
+    publish_status: Optional[str] = None
     # ===============================
     # WAIT / Resume 支持
     pause_reason: Optional[str] = None

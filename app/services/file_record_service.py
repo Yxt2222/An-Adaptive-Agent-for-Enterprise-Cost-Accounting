@@ -1,10 +1,9 @@
 from typing import List, Optional
 from uuid import uuid4
 from hashlib import sha256
-from datetime import datetime
 
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc
+from sqlalchemy import desc
 
 from app.models.file_record import FileRecord, FileType, ParseStatus, ValidationStatus
 from app.services.audit_log_service import AuditLogService

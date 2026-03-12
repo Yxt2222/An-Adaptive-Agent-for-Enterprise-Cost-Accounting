@@ -1,6 +1,5 @@
 #app/agentic/fsm/enums.py
 #FSM状态枚举
-
 from enum import Enum
 
 class CostCalcState(str, Enum):

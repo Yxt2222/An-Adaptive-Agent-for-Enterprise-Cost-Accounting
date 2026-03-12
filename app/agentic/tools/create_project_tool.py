@@ -99,8 +99,7 @@ def create_project_tool(
             side_effect=False,
             irreversible=False,
         )
-    finally:
-        db.close()
+ 
 
 # ---- ToolSpec 注册 ----
 
@@ -115,7 +114,26 @@ tool_registry.register(ToolSpec(
             "spec_tags": "list[str] | None",
             "operator_id": "str",
         },
-        output_schema="ToolResult",
+        output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_message": "Optional[str]",
+            "data": {
+                "id": "str",
+                "raw_name": "str",
+                "created_at": "datetime",
+                "identifier_status": "str",
+                "name_status": "str",
+                "is_business_contract_code_verified": "bool",
+                "is_name_normalized": "bool",
+                "bussiness_editable_info": "ProjectBusinessEditableInfo"
+            },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
         risk_profile=ToolRiskProfile(
             modifies_persistent_data=True,
             irreversible=True,

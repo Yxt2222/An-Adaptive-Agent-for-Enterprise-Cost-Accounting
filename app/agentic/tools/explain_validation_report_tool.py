@@ -72,7 +72,19 @@ tool_registry.register(
             func=explain_validation_report_tool,
             description="Explain validation report",
             input_schema={"arg":"ValidationReportDTO.model_dump()"},
-            output_schema='str',
+            output_schema={
+            "tool_name": "str",
+            "ok": "bool",
+            "error_type": "Optional[ErrorType]",
+            "error_message": "Optional[str]",
+            "data": {
+                "explanation": "str"
+            },
+            "explanation": "Optional[str]",
+            "side_effect": "bool",
+            "irreversible": "bool",
+            "audit_ref_id": "Optional[str]",
+        },
             risk_profile=ToolRiskProfile(
                 modifies_persistent_data=False,
                 irreversible=True,

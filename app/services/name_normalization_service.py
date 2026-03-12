@@ -1,4 +1,3 @@
-from typing import Optional
 from uuid import uuid4
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
