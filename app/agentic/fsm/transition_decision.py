@@ -13,6 +13,7 @@ class TransitionDecision(BaseModel):
 
     next_state: CostCalcState
     pause: bool = False
+    pause_reason: Optional[str] = None
 
     # 新增：FSM是否请求调用某个工具
     action: Optional[dict] = None

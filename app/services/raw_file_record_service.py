@@ -150,7 +150,7 @@ class RawUploadRecordService:
             if file_type not in file_type_mapping:
                 raise ValueError(f"Invalid file_type. Allowed values are: {', '.join(file_type_mapping.keys())}")
         if status is not None:
-            if status not in  status_mapping:
+            if status not in status_mapping:
                 raise ValueError(f"Invalid status. Allowed values are: {', '.join(status_mapping.keys())}")
         
         query = self.db.query(RawUploadRecord).filter(RawUploadRecord.agent_run_id == agent_run_id).order_by(RawUploadRecord.upload_time.desc())
@@ -160,6 +160,25 @@ class RawUploadRecordService:
             query = query.filter(RawUploadRecord.status == status_mapping.get(status))
         return query.all()
     
+    def get_newest_by_agent_run_id(self,agent_run_id) -> dict[str, str | None]:
+        '''
+        输入agent_run_id，返回该agent_run_id下最新上传的四类raw_file_record_id。
+        '''
+        query = self.db.query(RawUploadRecord).filter(
+            RawUploadRecord.agent_run_id == agent_run_id,
+            RawUploadRecord.status.in_([RawUploadStatus.probed, RawUploadStatus.confirmed]))
+        newest_material = query.filter(RawUploadRecord.file_type == FileType.material_cost).order_by(RawUploadRecord.version.desc()).first()
+        newest_part = query.filter(RawUploadRecord.file_type == FileType.part_cost).order_by(RawUploadRecord.version.desc()).first()
+        newest_labor = query.filter(RawUploadRecord.file_type == FileType.labor_cost).order_by(RawUploadRecord.version.desc()).first()
+        newest_logistics = query.filter(RawUploadRecord.file_type == FileType.logistics_cost).order_by(RawUploadRecord.version.desc()).first()
+        return {
+            "material_cost": newest_material.id if newest_material else None,
+            "part_cost": newest_part.id if newest_part else None,
+            "labor_cost": newest_labor.id if newest_labor else None,
+            "logistics_cost": newest_logistics.id if newest_logistics else None,
+        }
+        
+        
     def get_by_id(self, raw_upload_id: str) -> RawUploadRecord | None:
         return self.db.query(RawUploadRecord).filter(RawUploadRecord.id == raw_upload_id).first()
 

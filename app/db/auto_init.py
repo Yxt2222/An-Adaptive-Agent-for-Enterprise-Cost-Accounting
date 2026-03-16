@@ -1,23 +1,15 @@
 """
 数据库自动初始化检查模块
 在应用启动时自动检查并执行必要的初始化步骤
+如果未设置Database URL
+Bash :set DATABASE_URL=sqlite:///./cost_sys.db
+在跑初始文件初始化数据库： python -m app.db.auto_init
 """
 from sqlalchemy import inspect
 from app.db.session import get_engine, get_session
 from app.db.init_db import init_db
 from app.services.user_service import UserService
-#-------------------导入所有表-----------------------
-from app.models.user import User
-from app.models.project import Project
-from app.models.file_record import FileRecord
-from app.models.material_item import MaterialItem
-from app.models.part_item import PartItem
-from app.models.labor_item import LaborItem
-from app.models.logistics_item import LogisticsItem
-from app.models.cost_summary import CostSummary
-from app.models.name_mapping import NameMapping
-from app.models.audit_log import AuditLog
-from app.models.raw_upload_record import RawUploadRecord
+
 
 def check_tables_exist() -> bool:
     """检查数据库表是否存在"""

@@ -1,9 +1,9 @@
 #app/agentic/fsm/state_transition_engine.py
-from datetime import datetime
+from flask import json
 
 from app.agentic.fsm.enums import CostCalcState
-from app.agentic.fsm.FSMContect import FSMContext
-from app.agentic.fsm.global_setting import RETRYABLE_ERRORS, FATAL_ERRORS, REQUIRED_FILE_TYPES, VALID_VALIDATION_RESULTS, RETURN_VALIDATION_REPORT_TOOLS,  TOOLALLOWLIST_FOR_EACH_STATE
+from app.agentic.fsm.FSMContext import FSMContext
+from app.agentic.fsm.global_setting import RETRYABLE_ERRORS, FATAL_ERRORS, REQUIRED_FILE_TYPES, VALID_VALIDATION_RESULTS, RETURN_VALIDATION_REPORT_TOOLS,  TOOLALLOWLIST_FOR_EACH_STATE,REQUIRED_INPUT
 from app.agentic.fsm.transition_decision import TransitionDecision
 
 from typing import Callable, Optional, Dict, Tuple
@@ -42,12 +42,14 @@ class TransitionEngine:
             CostCalcState.S5_GENERATE_COST_SUMMARY: self._handle_s5,
             CostCalcState.S6_GENERATE_COST_REPORT: self._handle_s6,
             CostCalcState.S7_PUBLISH_AND_SUMMARIZE: self._handle_s7,
-            CostCalcState.S_WAIT_USER: lambda: TransitionDecision(next_state=CostCalcState.S_WAIT_USER, pause=True),
+            CostCalcState.S8_DONE: lambda: TransitionDecision(next_state=CostCalcState.S8_DONE),
+            CostCalcState.S_WAIT_USER: self._handle_s_wait_user,
+            CostCalcState.S_ERR_ESCALATE: lambda: TransitionDecision(next_state=CostCalcState.S_ERR_ESCALATE),
             
         }
         #----------------------------Context Update Dispatch----------------------
         self.ctxupdate_dispatchers: Dict[CostCalcState, Callable[[ToolResult], None]] = {
-            CostCalcState.S0_INIT: lambda result: None, #S0状态不处理tool result
+            CostCalcState.S0_INIT: lambda tool_result: None, #S0状态不处理tool result
             CostCalcState.S1_INPUT_GATE: self._updatectx_s1,
             CostCalcState.S2_CREATE_PROJECT: self._ctxupdate_s2,
             CostCalcState.S3_PARSE_FILES: self._ctx_update_s3,
@@ -55,6 +57,9 @@ class TransitionEngine:
             CostCalcState.S5_GENERATE_COST_SUMMARY: self._ctx_update_s5,
             CostCalcState.S6_GENERATE_COST_REPORT: self._ctx_update_s6,
             CostCalcState.S7_PUBLISH_AND_SUMMARIZE: self._ctx_update_s7,
+            CostCalcState.S8_DONE: lambda tool_result: None, #S8状态不处理tool result
+            CostCalcState.S_WAIT_USER: self._ctx_update_s_wait_user,
+            CostCalcState.S_ERR_ESCALATE: lambda tool_result: None, #S_ERR_ESCALATE状态不处理tool result
         }
         # Public API
     def initilize(self, agent_run_id:str) -> FSMContext:
@@ -107,7 +112,6 @@ class TransitionEngine:
         # 1 暂停优先
         if decision.pause:
             self._transition_to(CostCalcState.S_WAIT_USER)
-            self.ctx.pause_reason = self.ctx.pause_reason or "WAIT_USER"
             return
 
         # 32 正常跳转
@@ -232,11 +236,18 @@ class TransitionEngine:
                 cleaned = business_code.strip()
                 self.ctx.project_info["business_code"] = cleaned if cleaned else self.ctx.project_info.get("business_code")
                     
-            spec_tags = eval(data.get("spec_tags", "[]"))
+            spec_tags = json.loads(data.get("spec_tags", "[]"))
             if spec_tags is not None and isinstance(spec_tags, list):
                 cleaned_tags = [tag.strip() for tag in spec_tags if isinstance(tag, str) and tag.strip()]
                 self.ctx.project_info["spec_tags"] = cleaned_tags if cleaned_tags else self.ctx.project_info.get("spec_tags")
-                    
+                
+        #list_raw_uploads_tool       
+        elif tool_result.tool_name == "list_raw_uploads_tool":
+            if tool_result.data:
+                for k,v in tool_result.data.items():
+                    if k in REQUIRED_FILE_TYPES and v is not None:
+                        self.ctx.upload_rawfile_id_map[k] = v
+                
         #confirm_raw_upload_tool  
         elif tool_result.tool_name == "confirm_raw_upload_tool":
             raw_upload_id = data.get("raw_upload_id")
@@ -248,7 +259,9 @@ class TransitionEngine:
         #从self.ctx出发，检查项目名称等基本信息是否准备好，项目名称非空即可
         raw_name = self.ctx.project_info.get("raw_name")
         return bool(raw_name and raw_name.strip())
-
+    def _upload_ready_gate(self) -> set[str]:
+        #从self.ctx出发，检查文件是否准备好，返回已经有上传的文件类型集合
+        return set([k for k,v in self.ctx.upload_rawfile_id_map.items() if v is not None])
     def _file_ready_gate(self) -> set[str]:
         #从self.ctx出发，检查文件是否准备好，返回已经确认的文件类型集合
         return set([k for k,v in self.ctx.confirmed_rawfile_id_map.items() if v is not None])
@@ -256,37 +269,57 @@ class TransitionEngine:
     def _compute_required_inputs(
         self,
         info_ready: bool,
+        uploads_types: set[str],
         confirmed_types: set[str]
-    ) -> list[str]:
+    ) -> Dict[str, bool]:
 
-        missing = []
+        required_checklist = {}
         if not info_ready:
-            missing.append("project raw_name")
+            if "project_raw_name" in REQUIRED_INPUT:
+                required_checklist["project_raw_name"] = False
+            else:
+                raise ValueError("project_raw_name is required but not in REQUIRED_INPUT.")
+            
+        missing_upload = REQUIRED_FILE_TYPES - uploads_types
+        for ft in missing_upload:
+            if ft in REQUIRED_INPUT:
+                required_checklist[ft] = False
+            else:
+                raise ValueError(f"{ft} is required but not in REQUIRED_INPUT.")
+            
 
-        missing_files = REQUIRED_FILE_TYPES - confirmed_types
-        for ft in missing_files:
-            missing.append(f"file:{ft}")
-        return missing
+        missing_Confirmation = REQUIRED_FILE_TYPES - confirmed_types
+        for ft in missing_Confirmation:
+            if f"{ft}_confirmation" in REQUIRED_INPUT:
+                required_checklist[f"{ft}_confirmation"] = False
+            else:
+                raise ValueError(f"{ft}_confirmation is required but not in REQUIRED_INPUT.")
+        
+        return required_checklist
     
     #输入门控状态的handler，检查输入是否满足要求，如果满足要求则进入下一个状态，否则进入等待用户输入状态
     def _handle_s1(self) -> TransitionDecision:
 
         info_ready = self._info_ready_gate()
+        uploads_types = self._upload_ready_gate()
+        uploads_ready = REQUIRED_FILE_TYPES.issubset(uploads_types)
         confirmed_types = self._file_ready_gate()
         files_ready = REQUIRED_FILE_TYPES.issubset(confirmed_types)
-        required = self._compute_required_inputs(info_ready, confirmed_types)
-        #pudate context required_inputs
-        self.ctx.required_inputs = required
+        #update context required_inputs
 
-        if info_ready and files_ready:
+        if info_ready and uploads_ready and files_ready:
             return TransitionDecision(
                 next_state=CostCalcState.S2_CREATE_PROJECT
             )
-
-        return TransitionDecision(
-            next_state=CostCalcState.S_WAIT_USER,
-            pause=True
-        )
+        else:
+            #生成 required_checklist，标明哪些输入项缺失，传递给 WAIT_USER 状态以指导用户补齐输入
+            self.ctx.required_checklist = self._compute_required_inputs(info_ready, uploads_types, confirmed_types)
+            self.ctx.pre_wait_state = self.ctx.current_state
+            return TransitionDecision(
+                next_state=CostCalcState.S_WAIT_USER,
+                pause=True,
+                pause_reason="wait for required inputs in S1.",
+            )
     #----------------------S2_CREATE_PROJECT handler ----------------------------------------------
     def _handle_s2(self) -> TransitionDecision:
         """
@@ -441,10 +474,17 @@ class TransitionEngine:
             return TransitionDecision(
                 next_state=CostCalcState.S5_GENERATE_COST_SUMMARY
             )
-        # 3 存在 blocked 或 warning → 进入人工修正循环
-        else:   
+        # 3 存在 blocked 或 warning → 进入人工修正循环,等待用户递交changeset
+        else: 
+            if "changeset" in REQUIRED_INPUT:
+                self.ctx.required_checklist = {"changeset" : False}
+            else:
+                raise ValueError("changeset is required but not in REQUIRED_INPUT.")
+            self.ctx.pre_wait_state = self.ctx.current_state
             return TransitionDecision(
-                next_state=CostCalcState.S4_VALIDATION_CORRECTION_LOOP
+                next_state=CostCalcState.S_WAIT_USER,
+                pause=True,
+                pause_reason="Wait for changeset in S4."
             )
 
 # -----------------------------S5_GENERATE_COST_SUMMARY handler ---------------------------------------------- 
@@ -524,36 +564,57 @@ class TransitionEngine:
             return TransitionDecision(
                 next_state=CostCalcState.S8_DONE
             )
-    
-        # 未发布，调用工具
-        return TransitionDecision(
-            next_state=CostCalcState.S7_PUBLISH_AND_SUMMARIZE,
-            action={
-                "type": "call_tool",
-                "tool_name": "cost_report_publish_tool",
-                "args": {
-                    "cost_summary_id": self.ctx.cost_summary_id,
-                    "user_publish_query": None,  # 询问用户获取
-                    "operator_id": self.ctx.agent_run_id,
-                }
-            }
-        )
-# -----------------------------S_8_DONE handler (todo)---------------------------------------------- 
+        else:
+            if "publish_choice" in REQUIRED_INPUT:
+                self.ctx.required_checklist = {"publish_choice": False}
+            else:
+                raise ValueError("publish_choice is required but not in REQUIRED_INPUT.")
+            self.ctx.pre_wait_state = self.ctx.current_state
+            # 未发布，先询问用户倾向的推送方式，获取用户输入后再返回S7调用推送工具
+            return TransitionDecision(
+                next_state=CostCalcState.S_WAIT_USER,
+                pause=True,
+                pause_reason="Wait for user's publish choice in S7."
+            )
+# -----------------------------S_8_DONE handler (Not needed)---------------------------------------------- 
         
 # -----------------------------S_WAIT_USER handler (todo)---------------------------------------------- 
+    def _ctx_update_s_wait_user(self, tool_result: ToolResult) -> None:
+        """
+                Coordinator / Orchestration 接收到用户输入事件：
+        确定输入属于 WAIT_USER 的采集项
+        调用 FSMEngine 或直接更新 ctx.need_checklist
+        此处的tool_result是未来兼容性而构造的虚拟tool_result,定义如下:
+        ToolResult(tool_name="input_event", tool_result = True, data={ "采集项名": True })
+        """
+        if tool_result == "input_event" and tool_result.data:
+            for key in tool_result.data.keys():
+                if key in self.ctx.required_checklist:
+                    self.ctx.required_checklist[key] = True 
+                    
     def _handle_s_wait_user(self) -> TransitionDecision:
         """
-        S_WAIT_USER 是一个特殊状态，表示 FSM 在等待用户输入以继续流程。
-        进入 S_WAIT_USER 的原因会被记录在 ctx.pause_reason 中，以便前端展示给用户并指导用户下一步操作。
-        从 S_WAIT_USER 恢复的条件是用户输入满足当前状态的要求，这需要前端根据 ctx.required_inputs 提供相应的输入界面。
-        一旦用户输入满足要求，FSM 将根据当前状态重新评估并决定下一个状态。
+        检查 need_checklist 是否全部完成
+            如果全部完成 → 回溯到 pre_wait_state
+            如果未完成 → 保持 WAIT_USER，pause=True
+        更新 AgentSummary 或 FSMContext 的统计（可选，例如 wait_count）
         """
-        return TransitionDecision(
-            next_state=CostCalcState.S_WAIT_USER,
-            pause=True
-        )
+        if not self.ctx.pre_wait_state:
+            # 出于安全，防止未设置 pre_wait_state 时死循环
+            return TransitionDecision(next_state=CostCalcState.S_ERR_ESCALATE, pause=False)
 
-# -----------------------------S_ERR_ESCALATE handler (todo)---------------------------------------------- 
+        # 判断采集清单是否全部完成
+        if all(self.ctx.required_checklist.values()):
+            # 所有输入完成 → 回溯原业务状态
+            restore_state = self.ctx.pre_wait_state
+            self.ctx.pre_wait_state = None
+            self.ctx.required_checklist = {}
+            return TransitionDecision(next_state=restore_state)
+        
+        # 否则继续等待
+        return TransitionDecision(next_state=CostCalcState.S_WAIT_USER, pause=True)
+
+# -----------------------------S_ERR_ESCALATE handler (Not needed)---------------------------------------------- 
         
         
 if __name__ == "__main__":

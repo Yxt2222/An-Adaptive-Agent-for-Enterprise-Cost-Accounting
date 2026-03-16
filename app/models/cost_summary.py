@@ -89,9 +89,9 @@ class CostSummary(Base):
     )
     
     # df report管理储存信息
-    report_file_name: Optional[str]
-    report_storage_path: Optional[str]
-    report_generated_at: Optional[datetime]
+    report_file_name: Mapped[str] = mapped_column(String(255), nullable=True, comment="Generated report file name")
+    report_storage_path: Mapped[str] = mapped_column(String(255), nullable=True, comment="Report storage path")
+    report_generated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True, comment="Report generation timestamp")
 
     # =========
     # Optional: representation

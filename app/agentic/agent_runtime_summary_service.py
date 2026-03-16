@@ -2,14 +2,14 @@
 
 from typing import Dict, Any, List, Optional, Set
 from datetime import datetime
-from collections import Counter, defaultdict
+from collections import Counter
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
 from app.agentic.schemas.agent_summary import AgentSummary
 from app.agentic.schemas.tool_result import ToolResult
-from app.agentic.fsm.FSMContect import FSMContext
+from app.agentic.fsm.FSMContext import FSMContext
 from app.agentic.fsm.enums import CostCalcState
 from app.agentic.fsm.global_setting import RETRYABLE_ERRORS
 

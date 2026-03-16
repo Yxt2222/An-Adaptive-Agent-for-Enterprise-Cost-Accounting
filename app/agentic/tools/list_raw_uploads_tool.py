@@ -3,13 +3,13 @@ from typing import List
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 
-from app.models.raw_upload_record import RawUploadRecord
 from app.agentic.schemas.tool_result import ToolResult
 from app.agentic.schemas.error_type import ErrorType
+from app.agentic.fsm.global_setting import REQUIRED_FILE_TYPES
 
 from app.services.audit_log_service import AuditLogService
 from app.services.raw_file_record_service import RawUploadRecordService
-from app.db.enums import RawUploadStatus, FileType
+
 
 from app.agentic.schemas.tool_spec import ToolSpec
 from app.agentic.schemas.risk_profile import ToolRiskProfile
@@ -45,8 +45,6 @@ def list_raw_uploads_tool(
     *,
     db: Session,
     agent_run_id: str,
-    file_type: str | None = None,
-    status: str | None = None,
 ) -> ToolResult:      
     #空值校验：agent_run_id是必须的
     if not agent_run_id:
@@ -60,32 +58,16 @@ def list_raw_uploads_tool(
     audit = AuditLogService(db)
     raw_upload_service = RawUploadRecordService(db, audit)
     try:
-        #todo raw_file list 不能直接给toolresult.data，需要转换成dto
-        records: List[RawUploadRecord] = raw_upload_service.list_by_run(agent_run_id=agent_run_id, 
-                                                                        file_type=file_type, 
-                                                                        status=status)
-        data = [
-            {
-                "raw_upload_id": r.id,
-                "agent_run_id": r.agent_run_id,
-                "original_filename": r.original_filename,
-                "storage_path": r.storage_path,
-                "upload_time": r.upload_time.isoformat(),
-                "file_type": r.file_type.value if r.file_type else None,
-                "version": r.version,
-                "file_hash": r.file_hash,
-                "size": r.size,
-                "status": r.status.value,
-                "detected_columns": r.detected_columns,
-                "probe_error": r.probe_error,
-            }
-            for r in records
-        ]
-
+        records = raw_upload_service.get_newest_by_agent_run_id(agent_run_id)
+        #检查一下record的key是否规范：
+        for k in records.keys():
+            if k not in REQUIRED_FILE_TYPES:
+                raise ValueError(f"Unexpected file type {k} in records. Expected keys are: {', '.join(REQUIRED_FILE_TYPES)}")
+            
         return ToolResult(
             tool_name="list_raw_uploads_tool",
             ok=True,
-            data=data,
+            data=records,
             explanation="Raw uploads retrieved successfully.",
             side_effect=False,
             irreversible=False,

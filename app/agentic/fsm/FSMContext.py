@@ -1,7 +1,7 @@
 # app/agentic/fsm/FSMContect.py
 #FSM持久化context
 
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from pydantic import BaseModel, Field
 from app.agentic.fsm.enums import CostCalcState
 from app.agentic.schemas.dto.validate_report_dto import ValidationReportDTO
@@ -32,10 +32,10 @@ class FSMContext(BaseModel):
     # ===============================
     # 输入门控相关s1
     project_info: Dict[str, Any] = Field(default_factory=dict)
+    upload_rawfile_id_map:Dict[str, Optional[str]]= Field(default_factory=dict)
+    #S1每个类型rawfile最新上传的文件的id,不需要被确认，{“material_cost”: None | rawfile_id...}
     confirmed_rawfile_id_map: Dict[str, Optional[str]]= Field(default_factory=dict)
-    required_inputs: list[str] = Field(default_factory=list)
     #S1rawfile状态确认字典，{“material_cost”: None | “rawfile_id”...}
-    
     # ===============================
     # 项目 & 文件 & 业务裁决缓存（关键）
     project_id: Optional[str] = None
@@ -54,14 +54,17 @@ class FSMContext(BaseModel):
     #s6 generate_cost_report状态成功后会有report_storage_path
     publish_status: Optional[str] = None
     # ===============================
-    # WAIT / Resume 支持
-    pause_reason: Optional[str] = None
-    # ===============================
     # 审计
     context_snapshot_id: Optional[str] = None
     last_transition_from: Optional[CostCalcState] = None
     last_transition_to: Optional[CostCalcState] = None
     # ===============================
+    #WAIT USER
+    pre_wait_state: Optional[CostCalcState] = None
+    # 存储 WAIT_USER 回溯的原业务状态名
+    required_checklist: Dict[str, bool] = Field(default_factory=dict)
+    # key = 业务状态传递来的待采集项名
+    # value = 是否完成采集
     
     #max_retry
     @property

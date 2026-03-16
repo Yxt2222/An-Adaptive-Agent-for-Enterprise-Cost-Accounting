@@ -54,3 +54,22 @@ TOOLALLOWLIST_FOR_EACH_STATE = {
     CostCalcState.S_WAIT_USER: {},
     CostCalcState.S_ERR_ESCALATE: {},
 }
+
+REQUIRED_INPUT = {
+    "project_raw_name",#项目原始名字
+    "contract_code",#合同编码
+    "project_code",#项目编码
+    "spec_tags",#项目标签/属性
+    "material_cost",#初始材料文件
+    "part_cost",#初始零件文件
+    "labor_cost",#初始人工文件
+    "logistics_cost",#初始物流文件
+    "material_cost_confirmation",#材料文件确认
+    "part_cost_confirmation",#零件文件确认
+    "labor_cost_confirmation",#人工文件确认
+    "logistics_cost_confirmation",#物流文件确认
+    "changeset",#数据变更集
+    "publish_choice",#发布方式
+    "manual_override",#人工干预
+    "additional_common",#用户备注
+}
